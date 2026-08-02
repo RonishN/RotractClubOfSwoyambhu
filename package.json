@@ -1,0 +1,42 @@
+{
+  "name": "react-rac-swoyambhu",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently --names \"client,server\" --prefix-colors \"bgBlue.bold,bgMagenta.bold\" \"npm:dev:client\" \"npm:dev:server\"",
+    "dev:client": "vite",
+    "dev:server": "nodemon --watch server --ext js --exec \"node server/index.js\"",
+    "server": "node server/index.js",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0",
+    "nodemon": "^3.1.10",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@react-three/fiber": "^9.7.0",
+    "boneyard-js": "^1.9.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "framer-motion": "^12.43.0",
+    "imagekit": "^6.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.19.0",
+    "multer": "^2.2.0",
+    "pg": "^8.16.3",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-loading-skeleton": "^3.5.0",
+    "react-masonry-css": "^1.0.16",
+    "react-router-dom": "^7.18.2",
+    "three": "^0.185.1"
+  }
+}
