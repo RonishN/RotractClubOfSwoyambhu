@@ -25,3 +25,7 @@ dist-ssr
 .gemini/*
 .env
 .vercel
+.impeccable/
+documentation.md
+DESIGN.md
+PRODUCT.md
