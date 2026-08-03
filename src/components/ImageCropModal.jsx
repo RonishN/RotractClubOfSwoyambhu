@@ -269,27 +269,32 @@ export default function ImageCropModal({ imageSrc, cropType, onConfirm, onClose 
 
         {/* Aspect Ratio Selector (only if not circle) */}
         {cropType !== 'circle' && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 4 }}>
-            {[
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 4 }}>
+            {(cropType === 'landscape' ? [
+              { label: '16:9', val: 16/9 },
+              { label: '4:3', val: 4/3 }
+            ] : [
               { label: '16:9', val: 16/9 },
               { label: '4:3', val: 4/3 },
               { label: '1:1', val: 1 },
               { label: '3:4', val: 3/4 },
               { label: '9:16', val: 9/16 }
-            ].map((ratio) => (
+            ]).map((ratio) => (
               <button
                 key={ratio.label}
+                type="button"
                 onClick={() => setActiveRatio(ratio.val)}
                 style={{
-                  padding: '6px 12px',
-                  borderRadius: 6,
+                  padding: '8px 18px',
+                  borderRadius: 8,
                   border: 'none',
                   background: activeRatio === ratio.val ? 'var(--magenta)' : '#f1f5f9',
                   color: activeRatio === ratio.val ? 'white' : '#64748b',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
                   cursor: 'pointer',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.2s',
+                  boxShadow: activeRatio === ratio.val ? '0 2px 8px rgba(226, 0, 122, 0.25)' : 'none'
                 }}
               >
                 {ratio.label}

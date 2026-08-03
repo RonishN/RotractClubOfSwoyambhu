@@ -58,7 +58,7 @@ export default function ContactSection() {
         </div>
 
         <div className="join-btn-container">
-          <a href="https://wa.me/9779849786214" target="_blank" rel="noreferrer" className="btn">
+          <a href="https://web.whatsapp.com/send?phone=9779849786214" target="_blank" rel="noreferrer" className="btn">
             {lang === 'en' ? 'Join the Club' : <span className="devanagari">क्लबमा सामेल हुनुहोस्</span>}
           </a>
         </div>

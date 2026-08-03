@@ -96,6 +96,11 @@ export default function Header() {
             </Link>
           </li>
           <li>
+            <Link to="/events" onClick={() => setMobileMenuOpen(false)}>
+              {lang === 'en' ? 'Events' : 'कार्यक्रमहरू'}
+            </Link>
+          </li>
+          <li>
             <Link to="/gallery" onClick={() => setMobileMenuOpen(false)}>
               {lang === 'en' ? 'Gallery' : 'ग्यालरी'}
             </Link>

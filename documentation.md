@@ -236,6 +236,10 @@ Basic deployment flow:
 2. Deploy frontend build output and route API traffic to backend.
 3. Configure SPA fallback (rewrite all routes to index.html) for frontend routes.
 
+Production CORS note:
+- Set `FRONTEND_ORIGIN` on the backend to the live frontend domain.
+- If you deploy on Vercel, the backend also accepts the current deployment URL via `VERCEL_URL`, which covers same-project deployments without a separate custom origin.
+
 ## 12. Security and Architectural Limitations
 Current setup is stronger than client-only auth, but still basic:
 - MongoDB is primary; if unavailable, app auto-falls back to PostgreSQL backup.

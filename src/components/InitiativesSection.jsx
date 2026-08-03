@@ -8,6 +8,7 @@ import EditableField from './EditableField';
 import BlockControls from './BlockControls';
 import HorizontalScrollCarousel from './HorizontalScrollCarousel';
 import TraditionalDivider from './TraditionalDivider';
+import SandyDivider from './SandyDivider';
 
 export default function InitiativesSection({ content = {}, isLoading = false }) {
   const { lang } = useLang();
@@ -81,11 +82,12 @@ export default function InitiativesSection({ content = {}, isLoading = false }) 
   const renderHeader = (forceVisible = false) => (
     <div 
       className={`section-header ${forceVisible ? '' : 'fade-in'}`} 
-      style={{ padding: 0, ...(forceVisible ? { opacity: 1, transform: 'none' } : {}) }}
+      style={{ padding: 0, margin: '0 auto 2rem', textAlign: 'center', ...(forceVisible ? { opacity: 1, transform: 'none' } : {}) }}
     >
       <h2 className="section-title">
         {lang === 'en' ? 'What We Do' : <span className="devanagari">हाम्रा पहलहरू</span>}
       </h2>
+      <TraditionalDivider style={{ margin: '0.8rem auto 0.5rem' }} />
     </div>
   );
 
@@ -156,6 +158,7 @@ export default function InitiativesSection({ content = {}, isLoading = false }) 
           </button>
         </div>
       )}
+      <SandyDivider bottomColor="#FAF7F0" />
     </section>
   );
 }

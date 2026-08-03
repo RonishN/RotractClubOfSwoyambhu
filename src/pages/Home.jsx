@@ -6,6 +6,7 @@ import TeamSection from '../components/TeamSection';
 import InitiativesSection from '../components/InitiativesSection';
 import EventsSection from '../components/EventsSection';
 import ContactSection from '../components/ContactSection';
+import SandyDivider from '../components/SandyDivider';
 import Footer from '../components/Footer';
 import { getPublicContent } from '../api/client';
 

@@ -1,26 +1,55 @@
 const API_BASE = '/api';
 
-async function request(path, options = {}) {
+export const globalLoadingState = {
+  activeRequests: 0,
+  listeners: [],
+  subscribe(listener) {
+    this.listeners.push(listener);
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== listener);
+    };
+  },
+  notify() {
+    const isLoading = this.activeRequests > 0;
+    this.listeners.forEach(l => l(isLoading));
+  }
+};
+
+async function request(path, options = {}, requestOptions = {}) {
   const headers = {
     'Content-Type': 'application/json',
     ...(options.headers || {}),
   };
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    credentials: 'include', // Always send HttpOnly cookies
-    headers,
-  });
+  globalLoadingState.activeRequests++;
+  globalLoadingState.notify();
+
+  let response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      credentials: requestOptions.credentials || 'include',
+      headers,
+    });
+  } catch (err) {
+    globalLoadingState.activeRequests--;
+    globalLoadingState.notify();
+    throw err;
+  }
+
+  globalLoadingState.activeRequests--;
+  globalLoadingState.notify();
 
   let payload = null;
   try {
-    payload = await response.json();
+    const text = await response.text();
+    payload = text ? JSON.parse(text) : null;
   } catch {
     payload = null;
   }
 
   if (!response.ok) {
-    const error = new Error(payload?.message || 'Request failed');
+    const error = new Error(payload?.message || payload?.error || 'Request failed');
     error.status = response.status;
     error.code = payload?.code || null;
     throw error;
@@ -29,11 +58,83 @@ async function request(path, options = {}) {
   return payload;
 }
 
-export function loginAdmin(email, password) {
+export function loginAdmin(username, password) {
   return request('/admin/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ username, password }),
   });
+}
+
+export function subscribeToEvents(email) {
+  return request('/subscribe', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function unsubscribeToEvents(email) {
+  return request('/unsubscribe', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function forgotPassword(username, resetCode, newPassword) {
+  return request('/admin/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ username, resetCode, newPassword }),
+  });
+}
+
+export function changePassword(currentPassword, newPassword, token) {
+  return request('/admin/change-password', {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
+export function getUsers() {
+  return request('/admin/users');
+}
+
+export function createUser(username, email, permissions) {
+  return request('/admin/users', {
+    method: 'POST',
+    body: JSON.stringify({ username, email, permissions }),
+  });
+}
+
+export function sendAdminCredentials(username, email, tempPassword) {
+  return request('/admin/users/send-credentials', {
+    method: 'POST',
+    body: JSON.stringify({ username, email, tempPassword }),
+  });
+}
+
+export function toggleUserStatus(username, is_active) {
+  return request(`/admin/users/${username}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ is_active }),
+  });
+}
+
+export function deleteUser(username) {
+  return request(`/admin/users/${username}`, {
+    method: 'DELETE',
+  });
+}
+
+export function generateResetCode(username) {
+  return request('/admin/generate-reset-code', {
+    method: 'POST',
+    body: JSON.stringify({ username }),
+  });
+}
+
+export function getAuditLogs(page = 1, limit = 15) {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  return request(`/admin/logs?${params.toString()}`);
 }
 
 export function checkAdminSession() {
@@ -43,7 +144,7 @@ export function checkAdminSession() {
 // Public content: cache: 'no-store' ensures Home page always gets fresh data
 // after an admin saves changes — no manual reload needed.
 export function getPublicContent() {
-  return request('/content', { cache: 'no-store' });
+  return request('/content', { cache: 'no-store' }, { credentials: 'omit' });
 }
 
 export function getAdminContent() {
@@ -65,17 +166,31 @@ export function updateAdminContent(data) {
 export async function uploadImage(file) {
   const formData = new FormData();
   formData.append('image', file);
+  
+  globalLoadingState.activeRequests++;
+  globalLoadingState.notify();
 
-  const res = await fetch(`${API_BASE}/admin/upload`, {
-    method: 'POST',
-    credentials: 'include', // Cookie auth — no Authorization header needed
-    body: formData,
-    // Do NOT set Content-Type header — browser sets it with boundary for multipart
-  });
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/admin/upload`, {
+      method: 'POST',
+      credentials: 'include', // Cookie auth — no Authorization header needed
+      body: formData,
+      // Do NOT set Content-Type header — browser sets it with boundary for multipart
+    });
+  } catch (err) {
+    globalLoadingState.activeRequests--;
+    globalLoadingState.notify();
+    throw err;
+  }
+
+  globalLoadingState.activeRequests--;
+  globalLoadingState.notify();
 
   let data = null;
   try {
-    data = await res.json();
+    const text = await res.text();
+    data = text ? JSON.parse(text) : null;
   } catch {
     data = {};
   }
@@ -90,13 +205,6 @@ export async function uploadImage(file) {
   return data.url;
 }
 
-export async function restoreAdminContent(restoredData) {
-  return request('/admin/restore', {
-    method: 'POST',
-    body: JSON.stringify({ data: restoredData }),
-  });
-}
-
 export async function restoreToDefaults() {
   return request('/admin/restore-defaults', {
     method: 'POST',
@@ -105,6 +213,53 @@ export async function restoreToDefaults() {
 
 export function logoutAdmin() {
   return request('/admin/logout', {
+    method: 'POST',
+  });
+}
+
+export function updateUserPermissions(username, permissions) {
+  return request(`/admin/users/${username}/permissions`, {
+    method: 'PUT',
+    body: JSON.stringify({ permissions }),
+  });
+}
+
+export function getPublicEvents() {
+  return request('/events', { cache: 'no-store' }, { credentials: 'omit' });
+}
+
+export function getAdminEvents() {
+  return request('/admin/events');
+}
+
+export function createEvent(eventData) {
+  return request('/admin/events', {
+    method: 'POST',
+    body: JSON.stringify(eventData),
+  });
+}
+
+export function updateEvent(id, eventData) {
+  return request(`/admin/events/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(eventData),
+  });
+}
+
+export function deleteEvent(id) {
+  return request(`/admin/events/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export function notifyEventSubscribers(id) {
+  return request(`/admin/events/${id}/notify-subscribers`, {
+    method: 'POST',
+  });
+}
+
+export function resetEventNotifiedStates() {
+  return request('/admin/events/reset-notified', {
     method: 'POST',
   });
 }

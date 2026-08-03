@@ -7,6 +7,7 @@ import { MongoClient } from 'mongodb';
 import { Pool } from 'pg';
 import multer from 'multer';
 import ImageKit from 'imagekit';
+import nodemailer from 'nodemailer';
 
 dotenv.config();
 
@@ -15,10 +16,18 @@ const PORT = Number(process.env.PORT || 4000);
 const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const IS_PROD = NODE_ENV === 'production';
-const FRONTEND_ORIGINS = (process.env.FRONTEND_ORIGIN || 'http://localhost:5173,http://localhost:5174')
+const ENABLE_STARTUP_INTEGRITY_CHECK = process.env.ENABLE_STARTUP_INTEGRITY_CHECK
+  ? process.env.ENABLE_STARTUP_INTEGRITY_CHECK !== 'false'
+  : !IS_PROD;
+const FRONTEND_ORIGINS = [
+  ...(process.env.FRONTEND_ORIGIN || 'http://localhost:5173,http://localhost:5174')
   .split(',')
   .map((item) => item.trim())
-  .filter(Boolean);
+  .filter(Boolean),
+  ...[process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]
+    .filter(Boolean)
+    .map((host) => host.startsWith('http') ? host : `https://${host}`),
+];
 const MONGODB_URI = process.env.MONGODB_URI || '';
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || 'rotaractclubofswoyambhu';
 const MONGODB_COLLECTION = process.env.MONGODB_COLLECTION || 'content';
@@ -28,11 +37,6 @@ const POSTGRES_BACKUP_TABLE = process.env.POSTGRES_BACKUP_TABLE || 'website_cont
 // Set STRICT_DUAL_WRITE=false in .env to revert to soft-fallback mode.
 const STRICT_DUAL_WRITE = process.env.STRICT_DUAL_WRITE !== 'false';
 const AUTH_COOKIE_NAME = 'admin_session';
-
-const DEFAULT_HASHED_EMAIL = 'a1bb4ee454f84c9f8bc627b7a4f56811c3527312a66ac9a3bad21e9bba47155c';
-const DEFAULT_HASHED_PASSWORD = 'de4f46aafeb3bb9e06e980b81b90b8a86360cbfb288f9afb0dc3a0a4aca2b365';
-const HASHED_EMAIL = process.env.ADMIN_EMAIL_HASH || DEFAULT_HASHED_EMAIL;
-const HASHED_PASSWORD = process.env.ADMIN_PASSWORD_HASH || DEFAULT_HASHED_PASSWORD;
 
 const DOC_ID = 'website-content';
 
@@ -63,6 +67,7 @@ const websiteDefaults = {
     { id: '3', imgUrl: '/src/assets/images/img4.jpg', captionEn: 'Youth Workshop', captionNe: 'युवा कार्यशाला' },
     { id: '4', imgUrl: '/src/assets/images/img1.png', captionEn: 'Cultural Event', captionNe: 'सांस्कृतिक कार्यक्रम' },
   ],
+  eventsList: [],
   timestamp: '',
 };
 
@@ -161,6 +166,7 @@ function normalizeWebsiteData(data) {
     heroNe: data.heroNe ?? data.heroTitleNe ?? '',
     aboutEn: data.aboutEn ?? '',
     aboutNe: data.aboutNe ?? '',
+    eventsList: Array.isArray(data.eventsList) ? data.eventsList : [],
     timestamp: data.timestamp ?? '',
   };
 }
@@ -209,6 +215,33 @@ async function restoreMongoFromPostgres(pgStore) {
 
 function isSafeSqlIdentifier(value) {
   return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value);
+}
+
+function sanitizeWebUrl(value) {
+  if (typeof value !== 'string') return '';
+
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  try {
+    const parsed = new URL(trimmed, 'https://example.com');
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.toString() : '';
+  } catch {
+    return '';
+  }
+}
+
+function sanitizeEventLink(event) {
+  if (!event || typeof event !== 'object') return event;
+
+  return {
+    ...event,
+    registrationLink: sanitizeWebUrl(event.registrationLink),
+  };
+}
+
+function sanitizeEventsList(events) {
+  return Array.isArray(events) ? events.map(sanitizeEventLink) : [];
 }
 
 function parseCookies(rawCookieHeader = '') {
@@ -368,6 +401,45 @@ async function connectPostgresBackup() {
         website_data JSONB NOT NULL,
         history JSONB NOT NULL,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await postgresPool.query(`
+      CREATE TABLE IF NOT EXISTS admins (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        username TEXT UNIQUE NOT NULL,
+        email TEXT,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL,
+        permissions JSONB NOT NULL DEFAULT '[]',
+        is_temporary_password BOOLEAN NOT NULL DEFAULT false,
+        reset_code TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        passkeys JSONB NOT NULL DEFAULT '[]',
+        current_challenge TEXT
+      )
+    `);
+
+    // Ensure email column exists on existing installations
+    await postgresPool.query(`
+      ALTER TABLE admins ADD COLUMN IF NOT EXISTS email TEXT;
+    `);
+
+    await postgresPool.query(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id SERIAL PRIMARY KEY,
+        action TEXT NOT NULL,
+        username TEXT NOT NULL,
+        details JSONB,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await postgresPool.query(`
+      CREATE TABLE IF NOT EXISTS event_subscribers (
+        id SERIAL PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        subscribed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
 
@@ -544,6 +616,83 @@ async function writeStore(store) {
   throw new Error('No storage provider available');
 }
 
+async function getAdminByUsername(username) {
+  if (postgresPool) {
+    const res = await postgresPool.query('SELECT * FROM admins WHERE username = $1 LIMIT 1', [username]);
+    if (res.rows.length > 0) return res.rows[0];
+  }
+  if (mongoCollection) {
+    const db = mongoClient.db(MONGODB_DB_NAME);
+    const admin = await db.collection('admins').findOne({ username });
+    if (admin) return admin;
+  }
+  return null;
+}
+
+async function logAudit(action, username, details = {}) {
+  try {
+    if (postgresPool) {
+      await postgresPool.query(
+        'INSERT INTO audit_logs (action, username, details) VALUES ($1, $2, $3)',
+        [action, username, JSON.stringify(details)]
+      );
+    }
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      await db.collection('audit_logs').insertOne({
+        action,
+        username,
+        details,
+        created_at: new Date()
+      });
+    }
+  } catch (err) {
+    logError(`Failed to save audit log: ${err.message}`);
+  }
+}
+
+async function seedDefaultSuperAdmin() {
+  const superAdminUsername = 'sohail';
+  const superAdminPassHash = sha256('Sohailk@2064');
+
+  try {
+    const existing = await getAdminByUsername(superAdminUsername);
+    const adminData = {
+      username: superAdminUsername,
+        password_hash: superAdminPassHash,
+        role: 'SUPERADMIN',
+        permissions: ['VISUAL_EDITOR', 'ACCOUNT_PASSWORD_RESET', 'VIEW_LOGS', 'DEACTIVATE_ACCOUNT', 'DELETE_ACCOUNT', 'ADMIN_CREATOR', 'EVENT_MANAGER'],
+        is_temporary_password: false,
+        is_active: true,
+        passkeys: []
+      };
+      
+      if (postgresPool) {
+        await postgresPool.query(
+          `INSERT INTO admins (username, password_hash, role, permissions, is_temporary_password, is_active, passkeys) 
+           VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7::jsonb) 
+           ON CONFLICT (username) DO UPDATE SET permissions = EXCLUDED.permissions`,
+          [adminData.username, adminData.password_hash, adminData.role, JSON.stringify(adminData.permissions), adminData.is_temporary_password, adminData.is_active, JSON.stringify(adminData.passkeys)]
+        );
+      }
+      if (mongoCollection) {
+        const db = mongoClient.db(MONGODB_DB_NAME);
+        const { permissions, ...insertData } = adminData;
+        await db.collection('admins').updateOne(
+          { username: superAdminUsername },
+          { $setOnInsert: insertData, $set: { permissions: adminData.permissions } },
+          { upsert: true }
+        );
+      }
+      logInfo('Default superadmin seeded/updated successfully.');
+      if (!existing) {
+        await logAudit('CREATE_ADMIN', 'SYSTEM', { newAdmin: superAdminUsername });
+      }
+  } catch (err) {
+    logError(`Failed to seed superadmin: ${err.message}`);
+  }
+}
+
 async function initStorage() {
   await connectPostgresBackup();
   await connectMongo();
@@ -553,7 +702,7 @@ async function initStorage() {
   }
 
   // ── Startup Integrity Check ───────────────────────────────────────────────
-  if (mongoCollection && postgresPool) {
+  if (ENABLE_STARTUP_INTEGRITY_CHECK && mongoCollection && postgresPool) {
     logIntegrity('Comparing MongoDB ↔ PostgreSQL data...');
     try {
       const mongoDoc = await mongoCollection.findOne({ _id: DOC_ID });
@@ -594,6 +743,10 @@ async function initStorage() {
       activeStorage = mongoCollection ? 'mongodb' : 'postgres-backup';
     }
 
+  } else if (mongoCollection && postgresPool) {
+    activeStorage = 'mongodb+postgres';
+    logWarn('Startup integrity check skipped for faster production boot.');
+
   } else if (mongoCollection) {
     activeStorage = 'mongodb';
     logWarn('PostgreSQL backup not available. Running in MongoDB-only mode.');
@@ -614,6 +767,8 @@ async function initStorage() {
   } catch (err) {
     logWarn(`Failed to pre-load memory cache: ${err.message}`);
   }
+  
+  await seedDefaultSuperAdmin();
 }
 
 function sha256(value) {
@@ -660,7 +815,7 @@ app.get('/api/health', (_req, res) => {
 
 // Public content — no-store so browsers & CDNs never cache stale content
 app.get('/api/content', async (_req, res) => {
-  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=3600');
   try {
     const store = await readStore();
     res.json({ websiteData: store.websiteData });
@@ -670,34 +825,45 @@ app.get('/api/content', async (_req, res) => {
 });
 
 app.post('/api/admin/login', async (req, res) => {
-  const { email = '', password = '' } = req.body || {};
+  const { username = '', password = '' } = req.body || {};
 
-  if (typeof email !== 'string' || typeof password !== 'string') {
+  if (typeof username !== 'string' || typeof password !== 'string') {
     return res.status(400).json({ message: 'Invalid credentials payload' });
   }
 
-  if (email.length > 320 || password.length > 256) {
-    return res.status(400).json({ message: 'Invalid credentials length' });
+  const admin = await getAdminByUsername(username.trim());
+  if (!admin) {
+    return res.status(401).json({ message: 'Incorrect credentials. Please try again.' });
+  }
+  
+  if (!admin.is_active) {
+    return res.status(403).json({ message: 'Account is deactivated.' });
   }
 
-  const emailHash = sha256(String(email).trim().toLowerCase());
   const passwordHash = sha256(String(password));
-  const emailOk = safeEqualHex(emailHash, HASHED_EMAIL);
-  const passOk = safeEqualHex(passwordHash, HASHED_PASSWORD);
-
-  if (!emailOk || !passOk) {
+  if (!safeEqualHex(passwordHash, admin.password_hash)) {
     return res.status(401).json({ message: 'Incorrect credentials. Please try again.' });
   }
 
+  if (admin.is_temporary_password) {
+    const tempToken = jwt.sign(
+      { username: admin.username, role: admin.role, requirePasswordChange: true },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+    return res.json({ requirePasswordChange: true, tempToken });
+  }
+
   const token = jwt.sign(
-    { role: 'admin' },
+    { username: admin.username, role: admin.role, permissions: admin.permissions },
     JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '12h' }
   );
 
   setAuthCookie(res, token);
+  await logAudit('LOGIN', admin.username);
 
-  return res.json({ authenticated: true });
+  return res.json({ authenticated: true, permissions: admin.permissions });
 });
 
 app.post('/api/admin/logout', (_req, res) => {
@@ -706,7 +872,7 @@ app.post('/api/admin/logout', (_req, res) => {
 });
 
 app.get('/api/admin/session', requireAuth, (_req, res) => {
-  res.json({ authenticated: true });
+  res.json({ authenticated: true, permissions: _req.user.permissions, username: _req.user.username, role: _req.user.role });
 });
 
 app.get('/api/admin/content', requireAuth, async (_req, res) => {
@@ -734,10 +900,11 @@ app.put('/api/admin/content', requireAuth, async (req, res) => {
       timestamp: new Date().toLocaleString(),
     });
 
-    const historyEntry = { old: oldData, new: newData };
+    const historyEntry = { old: oldData, new: newData, changedBy: req.user?.username || 'unknown' };
     const nextHistory = [historyEntry, ...store.history].slice(0, 10);
 
     await writeStore({ websiteData: newData, history: nextHistory });
+    await logAudit('UPDATE_CONTENT', req.user?.username || 'unknown');
 
     res.json({
       websiteData: newData,
@@ -798,6 +965,826 @@ app.post('/api/admin/restore-defaults', requireAuth, async (req, res) => {
   } catch (err) {
     logError(`restore-defaults error: ${err.message}`);
     res.status(500).json({ message: 'Failed to restore defaults' });
+  }
+});
+
+// ── Admin Management Routes ───────────────────────────────────────────────────
+
+function generateRandomPassword() {
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+  let pass = '';
+  for (let i = 0; i < 12; i++) pass += chars[Math.floor(Math.random() * chars.length)];
+  // Ensure complexity
+  pass += 'aA1!'; 
+  return pass;
+}
+
+function validatePasswordComplexity(password) {
+  const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  return regex.test(password);
+}
+
+app.get('/api/admin/users', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('ADMIN_CREATOR') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+  try {
+    let admins = [];
+    if (postgresPool) {
+      const result = await postgresPool.query('SELECT username, email, role, permissions, is_active, is_temporary_password FROM admins');
+      admins = result.rows;
+    } else if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      admins = await db.collection('admins').find({}, { projection: { password_hash: 0, reset_code: 0, current_challenge: 0 } }).toArray();
+    }
+    res.json(admins);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch admins' });
+  }
+});
+
+app.post('/api/admin/users', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('ADMIN_CREATOR') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+  
+  const { username, email = '', permissions = [] } = req.body;
+  if (!username) return res.status(400).json({ message: 'Username required' });
+  if (!email || !email.trim()) return res.status(400).json({ message: 'Email address is required' });
+  
+  const tempPassword = generateRandomPassword();
+  const passHash = sha256(tempPassword);
+  const cleanEmail = email.trim();
+  
+  try {
+    const existing = await getAdminByUsername(username);
+    if (existing) return res.status(400).json({ message: 'Username already exists' });
+    
+    if (postgresPool) {
+      await postgresPool.query(
+        'INSERT INTO admins (username, email, password_hash, role, permissions, is_temporary_password) VALUES ($1, $2, $3, $4, $5::jsonb, $6)',
+        [username, cleanEmail, passHash, 'ADMIN', JSON.stringify(permissions), true]
+      );
+    }
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      await db.collection('admins').insertOne({
+        username, email: cleanEmail, password_hash: passHash, role: 'ADMIN', permissions, is_temporary_password: true, is_active: true, passkeys: []
+      });
+    }
+    
+    await logAudit('CREATE_ADMIN', req.user.username, { newAdmin: username, email: cleanEmail, permissions });
+    res.json({ message: 'Admin created', username, email: cleanEmail, tempPassword });
+  } catch (err) {
+    console.error('Create Admin Error:', err);
+    res.status(500).json({ message: 'Failed to create admin' });
+  }
+});
+
+app.post('/api/admin/users/send-credentials', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('ADMIN_CREATOR') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+
+  const { username, email, tempPassword } = req.body;
+  if (!email || !username || !tempPassword) {
+    return res.status(400).json({ message: 'Missing required credentials parameters' });
+  }
+
+  const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER;
+  const smtpPass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
+
+  if (!smtpUser || !smtpPass) {
+    return res.status(500).json({
+      message: 'SMTP Email configuration is missing on the server. Please configure SMTP_USER and SMTP_PASS (Google App Password) in environment variables.'
+    });
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+    });
+
+    const mailOptions = {
+      from: `"Rotaract Club of Swoyambhu" <${smtpUser}>`,
+      to: email,
+      subject: 'Welcome to Rotaract Club of Swoyambhu Admin C-Panel',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; background: #ffffff;">
+          <h2 style="color: #0F172A; margin-top: 0;">Admin Account Created</h2>
+          <p style="color: #475569; font-size: 15px;">Hello,</p>
+          <p style="color: #475569; font-size: 15px;">An administrative account has been created for you at <strong>Rotaract Club of Swoyambhu Control Panel</strong>.</p>
+          
+          <div style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #cbd5e1; margin: 20px 0;">
+            <p style="margin: 4px 0; color: #1e293b;"><strong>Username:</strong> <code style="font-size: 16px; background: #e2e8f0; padding: 2px 6px; borderRadius: 4px;">${username}</code></p>
+            <p style="margin: 4px 0; color: #1e293b;"><strong>Temporary Password:</strong> <code style="font-size: 16px; background: #e2e8f0; padding: 2px 6px; borderRadius: 4px;">${tempPassword}</code></p>
+          </div>
+
+          <p style="color: #ef4444; font-size: 14px; font-weight: 600;">⚠️ For security reasons, you will be prompted to change this temporary password upon your first sign-in.</p>
+          <p style="color: #64748b; font-size: 13px; margin-bottom: 0;">Regards,<br>Rotaract Club of Swoyambhu Executive Team</p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    await logAudit('SEND_ADMIN_CREDENTIALS_EMAIL', req.user.username, { recipient: email, targetAdmin: username });
+    res.json({ success: true, message: `Credentials successfully sent to ${email}` });
+  } catch (err) {
+    console.error('Send Credentials Email Error:', err);
+    res.status(500).json({ message: `Failed to send email: ${err.message}` });
+  }
+});
+
+app.put('/api/admin/users/:username/permissions', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('ADMIN_CREATOR') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden: Requires ADMIN_CREATOR or SUPERADMIN' });
+  }
+  const { username } = req.params;
+  const { permissions = [] } = req.body;
+
+  const targetAdmin = await getAdminByUsername(username);
+  if (!targetAdmin) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+  if (targetAdmin.role === 'SUPERADMIN') {
+    return res.status(400).json({ message: 'Cannot modify permissions of SUPERADMIN' });
+  }
+
+  try {
+    if (postgresPool) {
+      await postgresPool.query('UPDATE admins SET permissions = $1::jsonb WHERE username = $2', [JSON.stringify(permissions), username]);
+    }
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      await db.collection('admins').updateOne({ username }, { $set: { permissions } });
+    }
+    await logAudit('UPDATE_ADMIN_PERMISSIONS', req.user.username, { targetAdmin: username, permissions });
+    res.json({ message: 'Permissions updated successfully', permissions });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update permissions' });
+  }
+});
+
+app.put('/api/admin/users/:username/status', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('DEACTIVATE_ACCOUNT') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+  const { username } = req.params;
+  const { is_active } = req.body;
+  
+  try {
+    if (postgresPool) {
+      await postgresPool.query('UPDATE admins SET is_active = $1 WHERE username = $2', [is_active, username]);
+    }
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      await db.collection('admins').updateOne({ username }, { $set: { is_active } });
+    }
+    await logAudit('TOGGLE_ACTIVE', req.user.username, { targetAdmin: username, is_active });
+    res.json({ message: 'Status updated' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update status' });
+  }
+});
+
+app.delete('/api/admin/users/:username', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('DELETE_ACCOUNT') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+  const { username } = req.params;
+  if (username === req.user.username) {
+    return res.status(400).json({ message: 'Cannot delete yourself' });
+  }
+  if (username === 'sohail') {
+    return res.status(400).json({ message: 'Cannot delete default superadmin' });
+  }
+  
+  try {
+    if (postgresPool) {
+      await postgresPool.query('DELETE FROM admins WHERE username = $1', [username]);
+    }
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      await db.collection('admins').deleteOne({ username });
+    }
+    await logAudit('DELETE_ADMIN', req.user.username, { targetAdmin: username });
+    res.json({ message: 'Admin deleted' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to delete admin' });
+  }
+});
+
+app.post('/api/admin/change-password', async (req, res) => {
+  // Can be called with tempToken or normal token
+  let token = getTokenFromRequest(req);
+  if (!token) return res.status(401).json({ message: 'Unauthorized' });
+  
+  let user;
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+  
+  const { currentPassword, newPassword } = req.body;
+  if (!validatePasswordComplexity(newPassword)) {
+    return res.status(400).json({ message: 'Password must have 1 upper, 1 lower, 1 number, 1 special char.' });
+  }
+  
+  const admin = await getAdminByUsername(user.username);
+  if (!admin || !admin.is_active) return res.status(403).json({ message: 'Account deactivated or invalid' });
+  
+  if (!safeEqualHex(sha256(currentPassword), admin.password_hash)) {
+    return res.status(401).json({ message: 'Incorrect current password' });
+  }
+  
+  const newHash = sha256(newPassword);
+  
+  try {
+    if (postgresPool) {
+      await postgresPool.query('UPDATE admins SET password_hash = $1, is_temporary_password = false WHERE username = $2', [newHash, user.username]);
+    }
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      await db.collection('admins').updateOne({ username: user.username }, { $set: { password_hash: newHash, is_temporary_password: false } });
+    }
+    await logAudit('CHANGE_PASSWORD', user.username);
+    res.json({ message: 'Password updated successfully. Please login again.' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update password' });
+  }
+});
+
+app.post('/api/admin/generate-reset-code', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('ACCOUNT_PASSWORD_RESET') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+  
+  const { username } = req.body;
+  const resetCode = crypto.randomBytes(8).toString('hex'); // 16 chars
+  
+  try {
+    if (postgresPool) {
+      await postgresPool.query('UPDATE admins SET reset_code = $1 WHERE username = $2', [resetCode, username]);
+    }
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      await db.collection('admins').updateOne({ username }, { $set: { reset_code: resetCode } });
+    }
+    await logAudit('GENERATE_RESET_CODE', req.user.username, { targetAdmin: username });
+    res.json({ message: 'Code generated', resetCode });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to generate code' });
+  }
+});
+
+app.post('/api/admin/forgot-password', async (req, res) => {
+  const { username, resetCode, newPassword } = req.body;
+  if (!validatePasswordComplexity(newPassword)) {
+    return res.status(400).json({ message: 'Password must have 1 upper, 1 lower, 1 number, 1 special char.' });
+  }
+  
+  const admin = await getAdminByUsername(username);
+  if (!admin || admin.reset_code !== resetCode || !admin.is_active) {
+    return res.status(400).json({ message: 'Invalid reset code or username' });
+  }
+  
+  const newHash = sha256(newPassword);
+  
+  try {
+    if (postgresPool) {
+      await postgresPool.query('UPDATE admins SET password_hash = $1, reset_code = NULL, is_temporary_password = false WHERE username = $2', [newHash, username]);
+    }
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      await db.collection('admins').updateOne({ username }, { $set: { password_hash: newHash, reset_code: null, is_temporary_password: false } });
+    }
+    await logAudit('USED_RESET_CODE', username);
+    res.json({ message: 'Password has been reset' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to reset password' });
+  }
+});
+
+app.get('/api/admin/logs', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('VIEW_LOGS') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+  try {
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const pageSize = Math.min(15, Math.max(1, Number.parseInt(req.query.limit, 10) || 15));
+    const offset = (page - 1) * pageSize;
+
+    let logs = [];
+    let totalCount = 0;
+
+    if (postgresPool) {
+      const countResult = await postgresPool.query('SELECT COUNT(*)::int AS count FROM audit_logs');
+      totalCount = countResult.rows[0]?.count || 0;
+
+      const result = await postgresPool.query(
+        'SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT $1 OFFSET $2',
+        [pageSize, offset]
+      );
+      logs = result.rows;
+    } else if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      totalCount = await db.collection('audit_logs').countDocuments();
+      logs = await db.collection('audit_logs').find().sort({ created_at: -1 }).skip(offset).limit(pageSize).toArray();
+    }
+
+    res.json({
+      logs,
+      page,
+      pageSize,
+      totalCount,
+      totalPages: Math.max(1, Math.ceil(totalCount / pageSize)),
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch logs' });
+  }
+});
+
+// ── Event Management APIs ───────────────────────────────────────────────────
+
+app.get('/api/events', async (req, res) => {
+  try {
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=3600');
+    const store = await readStore();
+    const allEvents = Array.isArray(store.websiteData?.eventsList) ? store.websiteData.eventsList : [];
+    // Public only gets published events
+    const published = sanitizeEventsList(allEvents.filter(e => e.status !== 'Draft'));
+    res.json(published);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch events' });
+  }
+});
+
+app.get('/api/admin/events', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('EVENT_MANAGER') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden: Requires EVENT_MANAGER or SUPERADMIN' });
+  }
+  try {
+    const store = await readStore();
+    const allEvents = Array.isArray(store.websiteData?.eventsList) ? store.websiteData.eventsList : [];
+    res.json(sanitizeEventsList(allEvents));
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch admin events' });
+  }
+});
+
+app.post('/api/admin/events', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('EVENT_MANAGER') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden: Requires EVENT_MANAGER or SUPERADMIN' });
+  }
+
+  const { title, description = '', tags = [], pictures = [], eventDate, eventTime = '', attendees = '', registrationLink = '', registrationClosed = false, collaborators = [], status = 'Published' } = req.body;
+
+  if (!title || typeof title !== 'string' || !title.trim()) {
+    return res.status(400).json({ message: 'Event title is required' });
+  }
+  if (!description || typeof description !== 'string' || !description.trim()) {
+    return res.status(400).json({ message: 'Event description is required' });
+  }
+  if (!eventDate) {
+    return res.status(400).json({ message: 'Event date is required' });
+  }
+  if (!Array.isArray(pictures) || pictures.length === 0) {
+    return res.status(400).json({ message: 'At least one photo is required' });
+  }
+  if (pictures.length > 10) {
+    return res.status(400).json({ message: 'Maximum 10 photos allowed per event' });
+  }
+  if (Array.isArray(tags) && tags.length > 3) {
+    return res.status(400).json({ message: 'Maximum 3 tags allowed per event' });
+  }
+
+  const safeCollaborators = Array.isArray(collaborators)
+    ? collaborators
+        .filter(c => c && typeof c === 'object' && c.name && typeof c.name === 'string')
+        .map(c => ({ name: c.name.trim(), logoUrl: (c.logoUrl || '').trim() }))
+    : [];
+
+  try {
+    const store = await readStore();
+    const oldData = normalizeWebsiteData(store.websiteData);
+    const existingList = Array.isArray(oldData.eventsList) ? oldData.eventsList : [];
+
+    const newEvent = {
+      id: crypto.randomUUID ? crypto.randomUUID() : `event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      title: title.trim(),
+      description: description.trim(),
+      tags: Array.isArray(tags) ? tags.slice(0, 3) : [],
+      pictures: pictures.slice(0, 10),
+      eventDate,
+      eventTime: eventTime.trim(),
+      attendees: attendees.trim(),
+      registrationLink: sanitizeWebUrl(registrationLink),
+      registrationClosed: Boolean(registrationClosed),
+      collaborators: safeCollaborators,
+      status: status === 'Draft' ? 'Draft' : 'Published',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const nextEvents = [newEvent, ...existingList];
+    const newData = { ...oldData, eventsList: nextEvents, timestamp: new Date().toLocaleString() };
+
+    const historyEntry = { old: oldData, new: newData, changedBy: req.user.username };
+    const nextHistory = [historyEntry, ...store.history].slice(0, 10);
+
+    await writeStore({ websiteData: newData, history: nextHistory });
+    await logAudit('CREATE_EVENT', req.user.username, { eventId: newEvent.id, title: newEvent.title });
+
+    res.json({ message: 'Event created successfully', event: newEvent });
+  } catch (err) {
+    logError(`Create event error: ${err.message}`);
+    res.status(500).json({ message: 'Failed to create event' });
+  }
+});
+
+// Helper function to broadcast new event to email subscribers via Google SMTP
+async function sendUpcomingEventBroadcast(event) {
+  const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER;
+  const smtpPass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
+  if (!smtpUser || !smtpPass) {
+    throw new Error('SMTP credentials (SMTP_USER and SMTP_PASS or GMAIL_APP_PASSWORD) are not configured in environment variables.');
+  }
+
+  let subscribers = [];
+  try {
+    if (postgresPool) {
+      const res = await postgresPool.query('SELECT email FROM event_subscribers');
+      subscribers.push(...res.rows.map(r => r.email));
+    }
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      const docs = await db.collection('event_subscribers').find().toArray();
+      subscribers.push(...docs.map(d => d.email));
+    }
+    subscribers = Array.from(new Set(subscribers.map(e => e.toLowerCase())));
+  } catch (e) {
+    logError(`Failed to fetch subscribers for broadcast: ${e.message}`);
+    throw new Error(`Failed to query event subscribers database: ${e.message}`);
+  }
+
+  if (subscribers.length === 0) {
+    throw new Error('No email subscribers found in the database. Ask users to subscribe first on the Events page!');
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: smtpUser, pass: smtpPass },
+  });
+
+  let sentCount = 0;
+  // Send individual emails with personalized unsubscribe links
+  for (const recipientEmail of subscribers) {
+    const unsubUrl = `${process.env.FRONTEND_ORIGIN ? process.env.FRONTEND_ORIGIN.split(',')[0] : 'http://localhost:5173'}/events?unsubscribe=true&email=${encodeURIComponent(recipientEmail)}`;
+    
+    const mailOptions = {
+      from: `"Rotaract Club of Swoyambhu" <${smtpUser}>`,
+      to: recipientEmail,
+      subject: `🎉 Upcoming Event Announcement: ${event.title}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; padding: 28px; background: #ffffff;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <span style="background: #FF8A00; color: #ffffff; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 12px; text-transform: uppercase; letter-spacing: 1px;">Upcoming Event</span>
+            <h2 style="color: #0F172A; margin: 12px 0 6px;">${event.title}</h2>
+            <p style="color: #64748b; font-size: 14px; margin: 0;">📅 ${event.eventDate} ${event.eventTime ? `@ ${event.eventTime}` : ''}</p>
+          </div>
+
+          ${event.pictures && event.pictures.length > 0 ? `
+            <div style="width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 20px;">
+              <img src="${event.pictures[0]}" alt="${event.title}" style="width: 100%; height: auto; display: block;" />
+            </div>
+          ` : ''}
+
+          <p style="color: #334155; font-size: 15px; line-height: 1.6; white-space: pre-line;">${event.description}</p>
+
+          ${event.attendees ? `<p style="color: #475569; font-size: 14px; background: #f8fafc; padding: 10px 14px; border-radius: 8px;">👥 Attendees / Guests: <strong>${event.attendees}</strong></p>` : ''}
+
+          ${sanitizeWebUrl(event.registrationLink) && !event.registrationClosed ? `
+            <div style="text-align: center; margin-top: 28px;">
+              <a href="${sanitizeWebUrl(event.registrationLink)}" target="_blank" rel="noopener noreferrer" style="background: #FF8A00; color: #ffffff; padding: 12px 28px; border-radius: 25px; font-weight: 700; text-decoration: none; display: inline-block;">
+                Register For Event →
+              </a>
+            </div>
+          ` : ''}
+
+          <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 28px 0 16px;" />
+          <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 0;">
+            You received this email because you subscribed to event notifications at Rotaract Club of Swoyambhu.<br />
+            Want to stop receiving notifications? <a href="${unsubUrl}" style="color: #ef4444; text-decoration: underline;">Unsubscribe with 1-click</a>
+          </p>
+        </div>
+      `,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      sentCount++;
+    } catch (err) {
+      logWarn(`Failed to send event broadcast to ${recipientEmail}: ${err.message}`);
+      throw new Error(`Failed to send email to subscriber (${recipientEmail}): ${err.message}`);
+    }
+  }
+
+  if (sentCount === 0) {
+    throw new Error('Could not send notification emails to any subscribers.');
+  }
+
+  return { count: sentCount };
+}
+
+// ── Public Event Subscription Endpoint ──────────────────────────────────────
+app.post('/api/subscribe', async (req, res) => {
+  const { email } = req.body;
+  if (!email || typeof email !== 'string' || !email.trim() || !email.includes('@')) {
+    return res.status(400).json({ message: 'A valid email address is required.' });
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+
+  try {
+    if (postgresPool) {
+      await postgresPool.query(
+        'INSERT INTO event_subscribers (email) VALUES ($1) ON CONFLICT (email) DO NOTHING',
+        [cleanEmail]
+      );
+    }
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      await db.collection('event_subscribers').updateOne(
+        { email: cleanEmail },
+        { $setOnInsert: { email: cleanEmail, subscribedAt: new Date() } },
+        { upsert: true }
+      );
+    }
+
+    // Confirmation email with Unsubscribe link
+    const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER;
+    const smtpPass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
+    const frontendUrl = process.env.FRONTEND_ORIGIN ? process.env.FRONTEND_ORIGIN.split(',')[0] : 'http://localhost:5173';
+    const unsubUrl = `${frontendUrl}/events?unsubscribe=true&email=${encodeURIComponent(cleanEmail)}`;
+
+    if (smtpUser && smtpPass) {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: smtpUser, pass: smtpPass },
+      });
+      transporter.sendMail({
+        from: `"Rotaract Club of Swoyambhu" <${smtpUser}>`,
+        to: cleanEmail,
+        subject: 'Subscribed to Rotaract Club of Swoyambhu Events',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 550px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 14px;">
+            <h2 style="color: #0F172A; margin-top: 0;">Subscription Confirmed! 🎉</h2>
+            <p style="color: #475569; font-size: 15px; line-height: 1.6;">
+              Thank you for subscribing to <strong>Rotaract Club of Swoyambhu</strong> event notifications. You will now automatically receive updates and invitations for all our upcoming community, youth development, and cultural events directly in your inbox.
+            </p>
+            <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #f1f5f9; text-align: center;">
+              <a href="${unsubUrl}" style="color: #ef4444; font-size: 13px; text-decoration: underline;">
+                Click here to Unsubscribe / Stop receiving notifications
+              </a>
+            </div>
+            <p style="color: #94a3b8; font-size: 13px; text-align: center; margin-top: 14px;">Warm regards,<br>Rotaract Club of Swoyambhu Team</p>
+          </div>
+        `
+      }).catch(e => logWarn(`Subscribe confirmation email error: ${e.message}`));
+    }
+
+    res.json({ message: 'Subscribed successfully! You will now receive all upcoming events in your email.' });
+  } catch (err) {
+    logError(`Subscribe error: ${err.message}`);
+    res.status(500).json({ message: 'Failed to subscribe. Please try again.' });
+  }
+});
+
+// ── Public Event Unsubscribe Endpoint ──────────────────────────────────────
+app.post('/api/unsubscribe', async (req, res) => {
+  const { email } = req.body;
+  if (!email || typeof email !== 'string' || !email.trim() || !email.includes('@')) {
+    return res.status(400).json({ message: 'A valid email address is required.' });
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+
+  try {
+    if (postgresPool) {
+      await postgresPool.query('DELETE FROM event_subscribers WHERE LOWER(email) = $1', [cleanEmail]);
+    }
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      await db.collection('event_subscribers').deleteOne({ email: cleanEmail });
+    }
+
+    res.json({ message: 'You have been successfully unsubscribed from event notifications.' });
+  } catch (err) {
+    logError(`Unsubscribe error: ${err.message}`);
+    res.status(500).json({ message: 'Failed to unsubscribe. Please try again.' });
+  }
+});
+
+app.put('/api/admin/events/:id', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('EVENT_MANAGER') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden: Requires EVENT_MANAGER or SUPERADMIN' });
+  }
+
+  const { id } = req.params;
+  const { title, description = '', tags = [], pictures = [], eventDate, eventTime = '', attendees = '', registrationLink = '', registrationClosed = false, collaborators = [], status = 'Published' } = req.body;
+
+  if (!title || typeof title !== 'string' || !title.trim()) {
+    return res.status(400).json({ message: 'Event title is required' });
+  }
+  if (!description || typeof description !== 'string' || !description.trim()) {
+    return res.status(400).json({ message: 'Event description is required' });
+  }
+  if (!eventDate) {
+    return res.status(400).json({ message: 'Event date is required' });
+  }
+  if (!Array.isArray(pictures) || pictures.length === 0) {
+    return res.status(400).json({ message: 'At least one photo is required' });
+  }
+  if (pictures.length > 10) {
+    return res.status(400).json({ message: 'Maximum 10 photos allowed per event' });
+  }
+  if (Array.isArray(tags) && tags.length > 3) {
+    return res.status(400).json({ message: 'Maximum 3 tags allowed per event' });
+  }
+
+  const safeCollaborators = Array.isArray(collaborators)
+    ? collaborators
+        .filter(c => c && typeof c === 'object' && c.name && typeof c.name === 'string')
+        .map(c => ({ name: c.name.trim(), logoUrl: (c.logoUrl || '').trim() }))
+    : [];
+
+  try {
+    const store = await readStore();
+    const oldData = normalizeWebsiteData(store.websiteData);
+    const existingList = Array.isArray(oldData.eventsList) ? oldData.eventsList : [];
+
+    const index = existingList.findIndex(e => e.id === id);
+    if (index === -1) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    const updatedEvent = {
+      ...existingList[index],
+      title: title.trim(),
+      description: description.trim(),
+      tags: Array.isArray(tags) ? tags.slice(0, 3) : [],
+      pictures: pictures.slice(0, 10),
+      eventDate,
+      eventTime: eventTime.trim(),
+      attendees: attendees.trim(),
+      registrationLink: sanitizeWebUrl(registrationLink),
+      registrationClosed: Boolean(registrationClosed),
+      collaborators: safeCollaborators,
+      status: status === 'Draft' ? 'Draft' : 'Published',
+      updatedAt: new Date().toISOString(),
+    };
+
+    const nextEvents = [...existingList];
+    nextEvents[index] = updatedEvent;
+
+    const newData = { ...oldData, eventsList: nextEvents, timestamp: new Date().toLocaleString() };
+
+    const historyEntry = { old: oldData, new: newData, changedBy: req.user.username };
+    const nextHistory = [historyEntry, ...store.history].slice(0, 10);
+
+    await writeStore({ websiteData: newData, history: nextHistory });
+    await logAudit('UPDATE_EVENT', req.user.username, { eventId: id, title: updatedEvent.title });
+
+    res.json({ message: 'Event updated successfully', event: updatedEvent });
+  } catch (err) {
+    logError(`Update event error: ${err.message}`);
+    res.status(500).json({ message: 'Failed to update event' });
+  }
+});
+
+// Explicit Notify Subscribers Endpoint for Upcoming Events
+app.post('/api/admin/events/:id/notify-subscribers', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('EVENT_MANAGER') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden: Requires EVENT_MANAGER or SUPERADMIN' });
+  }
+
+  const { id } = req.params;
+
+  try {
+    const store = await readStore();
+    const oldData = normalizeWebsiteData(store.websiteData);
+    const existingList = Array.isArray(oldData.eventsList) ? oldData.eventsList : [];
+
+    const index = existingList.findIndex(e => e.id === id);
+    if (index === -1) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    const event = existingList[index];
+
+    // Check if upcoming
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (event.eventDate < todayStr) {
+      return res.status(400).json({ message: 'Notifications can only be sent for upcoming events.' });
+    }
+
+    if (event.status === 'Draft') {
+      return res.status(400).json({ message: 'Notifications cannot be sent for Draft events. Please publish the event first.' });
+    }
+
+    if (event.notifiedSubscribers) {
+      return res.status(400).json({ message: 'Notifications have already been sent for this event.' });
+    }
+
+    // Broadcast email to subscribers
+    const broadcastResult = await sendUpcomingEventBroadcast(event);
+
+    // Mark event as notified
+    const updatedEvent = {
+      ...event,
+      notifiedSubscribers: true,
+      notifiedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const nextEvents = [...existingList];
+    nextEvents[index] = updatedEvent;
+
+    const newData = { ...oldData, eventsList: nextEvents, timestamp: new Date().toLocaleString() };
+    const historyEntry = { old: oldData, new: newData, changedBy: req.user.username };
+    const nextHistory = [historyEntry, ...store.history].slice(0, 10);
+
+    await writeStore({ websiteData: newData, history: nextHistory });
+    await logAudit('NOTIFY_EVENT_SUBSCRIBERS', req.user.username, { eventId: id, title: event.title });
+
+    res.json({ message: 'Subscribers successfully notified!', event: updatedEvent, count: broadcastResult?.count || 0 });
+  } catch (err) {
+    logError(`Notify subscribers error: ${err.message}`);
+    res.status(500).json({ message: `Failed to notify subscribers: ${err.message}` });
+  }
+});
+
+// Endpoint to reset all event notified states
+app.post('/api/admin/events/reset-notified', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('EVENT_MANAGER') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden: Requires EVENT_MANAGER or SUPERADMIN' });
+  }
+
+  try {
+    const store = await readStore();
+    const oldData = normalizeWebsiteData(store.websiteData);
+    const existingList = Array.isArray(oldData.eventsList) ? oldData.eventsList : [];
+
+    const nextEvents = existingList.map(e => ({
+      ...e,
+      notifiedSubscribers: false,
+      notifiedAt: null
+    }));
+
+    const newData = { ...oldData, eventsList: nextEvents, timestamp: new Date().toLocaleString() };
+    const historyEntry = { old: oldData, new: newData, changedBy: req.user.username };
+    const nextHistory = [historyEntry, ...store.history].slice(0, 10);
+
+    await writeStore({ websiteData: newData, history: nextHistory });
+    await logAudit('RESET_EVENT_NOTIFIED_STATES', req.user.username, {});
+
+    res.json({ message: 'All event notified states have been reset successfully!', events: nextEvents });
+  } catch (err) {
+    logError(`Reset notified error: ${err.message}`);
+    res.status(500).json({ message: 'Failed to reset notified states.' });
+  }
+});
+
+app.delete('/api/admin/events/:id', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('EVENT_MANAGER') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden: Requires EVENT_MANAGER or SUPERADMIN' });
+  }
+
+  const { id } = req.params;
+
+  try {
+    const store = await readStore();
+    const oldData = normalizeWebsiteData(store.websiteData);
+    const existingList = Array.isArray(oldData.eventsList) ? oldData.eventsList : [];
+
+    const nextEvents = existingList.filter(e => e.id !== id);
+    const newData = { ...oldData, eventsList: nextEvents, timestamp: new Date().toLocaleString() };
+
+    const historyEntry = { old: oldData, new: newData, changedBy: req.user.username };
+    const nextHistory = [historyEntry, ...store.history].slice(0, 10);
+
+    await writeStore({ websiteData: newData, history: nextHistory });
+    await logAudit('DELETE_EVENT', req.user.username, { eventId: id });
+
+    res.json({ message: 'Event deleted successfully' });
+  } catch (err) {
+    logError(`Delete event error: ${err.message}`);
+    res.status(500).json({ message: 'Failed to delete event' });
   }
 });
 

@@ -116,7 +116,7 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
           justifyContent: 'flex-start',
           overflow: 'hidden',
           width: '100%',
-          paddingBottom: '2.5rem',
+          paddingBottom: '3.5rem',
           zIndex: 10
         }}
       >
@@ -124,70 +124,42 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
         <div style={{ 
           width: '100%', 
           padding: '0 5%', 
-          marginBottom: '1.8rem', 
+          marginBottom: '1.2rem', 
           display: 'flex', 
           alignItems: 'center', 
-          justifyContent: 'space-between',
+          justifyContent: 'center',
           flexWrap: 'wrap',
-          gap: '1rem'
+          gap: '1.5rem'
         }}>
-          <div style={{ flex: 1, textAlign: 'center' }}>
+          <div style={{ flex: 1 }}>
             {header}
           </div>
-
-          {/* Quick Nav Arrows when content overflows */}
-          {maxScroll > 0 && (
-            <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-              <button
-                onClick={scrollPrev}
-                disabled={currentProgress <= 0.02}
-                aria-label="Previous"
-                style={{
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: '50%',
-                  border: '1px solid rgba(255, 209, 59, 0.4)',
-                  background: currentProgress <= 0.02 ? 'rgba(255,255,255,0.05)' : 'rgba(255, 138, 0, 0.2)',
-                  color: currentProgress <= 0.02 ? 'rgba(255,255,255,0.3)' : '#FFD13B',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: currentProgress <= 0.02 ? 'default' : 'pointer',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-                }}
-              >
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                  <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
-                </svg>
-              </button>
-
-              <button
-                onClick={scrollNext}
-                disabled={currentProgress >= 0.98}
-                aria-label="Next"
-                style={{
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: '50%',
-                  border: '1px solid rgba(255, 209, 59, 0.4)',
-                  background: currentProgress >= 0.98 ? 'rgba(255,255,255,0.05)' : 'rgba(255, 138, 0, 0.2)',
-                  color: currentProgress >= 0.98 ? 'rgba(255,255,255,0.3)' : '#FFD13B',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: currentProgress >= 0.98 ? 'default' : 'pointer',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-                }}
-              >
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                  <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
-                </svg>
-              </button>
-            </div>
-          )}
         </div>
+
+        {/* Dynamic Glowing Scroll Progress Bar */}
+        {maxScroll > 0 && (
+          <div style={{ width: '90%', margin: '0 auto 2.5rem', padding: '0 5%' }}>
+            <div style={{
+              width: '100%',
+              height: '5px',
+              background: 'rgba(28, 43, 76, 0.06)',
+              borderRadius: '10px',
+              overflow: 'hidden',
+              position: 'relative'
+            }}>
+              <motion.div 
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  background: 'linear-gradient(90deg, var(--saffron) 0%, var(--gold) 50%, var(--magenta) 100%)',
+                  scaleX: smoothProgress,
+                  transformOrigin: 'left',
+                  borderRadius: '10px'
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Track Container */}
         <div style={{ width: '100%', overflow: 'hidden', padding: '0 5%' }}>

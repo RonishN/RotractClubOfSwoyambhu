@@ -1,60 +1,53 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useLang } from '../context/LanguageContext';
-import { useEditMode } from '../context/EditModeContext';
 import useFadeIn from '../hooks/useFadeIn';
-import EditableField from './EditableField';
-import BlockControls from './BlockControls';
-import TraditionalDivider from './TraditionalDivider';
+import SandyDivider from './SandyDivider';
+import { getPublicEvents } from '../api/client';
 
-export default function EventsSection({ content = {} }) {
+export default function EventsSection() {
   const { lang } = useLang();
   const ref = useFadeIn();
-  const { isEditMode, draft, updateDraftArray } = useEditMode();
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Use draft when inside admin provider; fall back to content prop on public page
-  const hasDraft = draft && Object.keys(draft).length > 0;
-  const eventsList = hasDraft ? (draft.events || []) : (content?.events || []);
+  useEffect(() => {
+    getPublicEvents()
+      .then((data) => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        // Filter upcoming events (eventDate >= todayStr) or fallback to all events if none upcoming, sorted by date
+        const upcoming = (data || [])
+          .filter((e) => e.eventDate >= todayStr)
+          .sort((a, b) => a.eventDate.localeCompare(b.eventDate))
+          .slice(0, 3);
+        
+        // If less than 3 upcoming, pad with latest completed events
+        if (upcoming.length < 3) {
+          const remainingCount = 3 - upcoming.length;
+          const remainingIds = new Set(upcoming.map((u) => u.id));
+          const padding = (data || [])
+            .filter((e) => !remainingIds.has(e.id))
+            .sort((a, b) => b.eventDate.localeCompare(a.eventDate))
+            .slice(0, remainingCount);
+          setEvents([...upcoming, ...padding]);
+        } else {
+          setEvents(upcoming);
+        }
+      })
+      .catch(() => setEvents([]))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const handleUpdate = (index, field, value) => {
-    const newList = [...eventsList];
-    newList[index] = { ...newList[index], [field]: value };
-    updateDraftArray('events', newList);
+  const formatMonth = (dateStr) => {
+    if (!dateStr) return 'JAN';
+    const date = new Date(dateStr);
+    return date.toLocaleString('en-US', { month: 'short' }).toUpperCase();
   };
 
-  const handleMoveUp = (index) => {
-    if (index === 0) return;
-    const newList = [...eventsList];
-    const temp = newList[index];
-    newList[index] = newList[index - 1];
-    newList[index - 1] = temp;
-    updateDraftArray('events', newList);
-  };
-
-  const handleMoveDown = (index) => {
-    if (index === eventsList.length - 1) return;
-    const newList = [...eventsList];
-    const temp = newList[index];
-    newList[index] = newList[index + 1];
-    newList[index + 1] = temp;
-    updateDraftArray('events', newList);
-  };
-
-  const handleDelete = (index) => {
-    const newList = [...eventsList];
-    newList.splice(index, 1);
-    updateDraftArray('events', newList);
-  };
-
-  const handleAdd = () => {
-    const newList = [...eventsList, {
-      id: Date.now().toString(),
-      day: '01',
-      month: 'JAN',
-      titleEn: 'New Event',
-      titleNe: 'नयाँ कार्यक्रम',
-      desc: 'Description goes here.'
-    }];
-    updateDraftArray('events', newList);
+  const formatDay = (dateStr) => {
+    if (!dateStr) return '01';
+    const parts = dateStr.split('-');
+    return parts[2] || '01';
   };
 
   return (
@@ -67,85 +60,84 @@ export default function EventsSection({ content = {} }) {
 
       {/* Magazine-style event cards */}
       <div className="events-magazine fade-in delay-1" style={{ opacity: 1, transform: 'none' }}>
-        {eventsList.map((ev, i) => (
-          <BlockControls
-            key={ev.id || i}
-            isFirst={i === 0}
-            isLast={i === eventsList.length - 1}
-            onMoveUp={() => handleMoveUp(i)}
-            onMoveDown={() => handleMoveDown(i)}
-            onDelete={() => handleDelete(i)}
-          >
-            <div className="event-magazine-card">
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '3rem 0', color: 'var(--navy)' }}>
+            <span className="admin-spinner" style={{ borderTopColor: 'var(--saffron)' }} />
+          </div>
+        ) : events.length === 0 ? (
+          <div style={{ textAlign: 'center', color: '#64748b', padding: '2rem 0' }}>
+            {lang === 'en' ? 'No events scheduled.' : 'कुनै कार्यक्रमहरू तय गरिएको छैन।'}
+          </div>
+        ) : (
+          events.map((ev) => (
+            <div key={ev.id} className="event-magazine-card">
               {/* Colored left accent bar */}
               <div className="event-card-accent" />
 
               {/* Date badge */}
               <div className="event-card-date-badge">
-                <div className="event-card-day">
-                  <EditableField value={ev.day} onChange={(val) => handleUpdate(i, 'day', val)}>
-                    {ev.day}
-                  </EditableField>
-                </div>
-                <div className="event-card-month">
-                  <EditableField value={ev.month} onChange={(val) => handleUpdate(i, 'month', val)}>
-                    {ev.month}
-                  </EditableField>
-                </div>
+                <div className="event-card-day">{formatDay(ev.eventDate)}</div>
+                <div className="event-card-month">{formatMonth(ev.eventDate)}</div>
               </div>
 
               {/* Event details */}
               <div className="event-card-body">
-                <h4 className="event-card-title">
-                  <EditableField
-                    value={lang === 'en' ? ev.titleEn : ev.titleNe}
-                    onChange={(val) => handleUpdate(i, lang === 'en' ? 'titleEn' : 'titleNe', val)}
-                  >
-                    {lang === 'en' ? ev.titleEn : <span className="devanagari">{ev.titleNe}</span>}
-                  </EditableField>
-                </h4>
-                <p className="event-card-desc">
-                  <EditableField multiline value={ev.desc} onChange={(val) => handleUpdate(i, 'desc', val)}>
-                    {ev.desc}
-                  </EditableField>
-                </p>
+                <h4 className="event-card-title">{ev.title}</h4>
+                {ev.description && <p className="event-card-desc">{ev.description}</p>}
+                {ev.registrationLink && !ev.registrationClosed && (
+                  <div style={{ marginTop: 10 }}>
+                    <a
+                      href={ev.registrationLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: '0.8rem', color: 'var(--saffron)', fontWeight: 700, textDecoration: 'none' }}
+                    >
+                      ✍️ Register Now →
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
-          </BlockControls>
-        ))}
+          ))
+        )}
       </div>
 
-      {isEditMode && (
-        <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-          <button
-            onClick={handleAdd}
-            style={{
-              background: 'transparent',
-              border: '2px dashed var(--magenta)',
-              color: 'var(--magenta)',
-              padding: '12px 28px',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: '0.95rem',
-              transition: 'background 0.2s, transform 0.15s',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = 'rgba(226,0,122,0.06)';
-              e.currentTarget.style.transform = 'scale(1.02)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-          >
-            <span style={{ fontSize: '1.1rem' }}>＋</span> Add Event
-          </button>
-        </div>
-      )}
+      {/* View All Events Button Redirect */}
+      <div style={{ textAlign: 'center', marginTop: '2.5rem', marginBottom: '1rem' }}>
+        <Link
+          to="/events"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'var(--saffron, #FF8A00)',
+            color: '#ffffff',
+            padding: '12px 28px',
+            borderRadius: '25px',
+            fontWeight: 700,
+            fontSize: '0.95rem',
+            textDecoration: 'none',
+            boxShadow: '0 4px 14px rgba(255, 138, 0, 0.35)',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 8px 20px rgba(255, 138, 0, 0.45)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 4px 14px rgba(255, 138, 0, 0.35)';
+          }}
+        >
+          <span>{lang === 'en' ? 'View All Events' : 'सबै कार्यक्रमहरू हेर्नुहोस्'}</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </Link>
+      </div>
+
+      <SandyDivider bottomColor="#FCFBF7" />
     </section>
   );
 }

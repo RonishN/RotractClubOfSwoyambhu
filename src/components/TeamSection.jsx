@@ -9,31 +9,9 @@ import EditableImage from './EditableImage';
 import BlockControls from './BlockControls';
 import HorizontalScrollCarousel from './HorizontalScrollCarousel';
 import TraditionalDivider from './TraditionalDivider';
+import MandalaFrame3D from './MandalaFrame3D';
+import SandyDivider from './SandyDivider';
 
-// Decorative mandala ring SVG drawn behind each avatar
-const MandalaRing = () => (
-  <svg className="mandala-ring" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="none">
-    <circle cx="50" cy="50" r="48" stroke="#C9962B" strokeWidth="0.6" strokeDasharray="2 3" />
-    <circle cx="50" cy="50" r="42" stroke="#E8871A" strokeWidth="0.4" strokeDasharray="3 2" />
-    <circle cx="50" cy="50" r="36" stroke="#C9962B" strokeWidth="0.5" />
-    {/* 8 radial lines */}
-    {[0,45,90,135,180,225,270,315].map((angle) => {
-      const rad = (angle * Math.PI) / 180;
-      const x1 = 50 + 36 * Math.cos(rad);
-      const y1 = 50 + 36 * Math.sin(rad);
-      const x2 = 50 + 47 * Math.cos(rad);
-      const y2 = 50 + 47 * Math.sin(rad);
-      return <line key={angle} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#E8871A" strokeWidth="0.5" opacity="0.6" />;
-    })}
-    {/* Diamond tips at cardinal points */}
-    {[0,90,180,270].map((angle) => {
-      const rad = (angle * Math.PI) / 180;
-      const cx = 50 + 48 * Math.cos(rad);
-      const cy = 50 + 48 * Math.sin(rad);
-      return <circle key={`d-${angle}`} cx={cx} cy={cy} r="1.5" fill="#C9962B" opacity="0.7" />;
-    })}
-  </svg>
-);
 
 export default function TeamSection({ content = {}, isLoading = false }) {
   const { lang } = useLang();
@@ -125,7 +103,7 @@ export default function TeamSection({ content = {}, isLoading = false }) {
         <div className="team-card fade-in delay-1" style={{ opacity: 1, transform: 'none' }}>
           {/* Circular Avatar with Concentric Mandala Ring */}
           <div className="team-avatar-wrapper">
-            <MandalaRing />
+            <MandalaFrame3D />
             <div className="avatar-placeholder">
               <EditableImage 
                 src={m.imgUrl} 
@@ -196,7 +174,7 @@ export default function TeamSection({ content = {}, isLoading = false }) {
             )}
             {hasEmail && (
               <a 
-                href={`mailto:${m.email}`} 
+                href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(m.email)}`} 
                 className="team-social-btn team-social-email"
                 title={`Email ${m.name}`}
                 onClick={(e) => isEditMode && e.preventDefault()}
@@ -241,11 +219,12 @@ export default function TeamSection({ content = {}, isLoading = false }) {
   const renderHeader = (forceVisible = false) => (
     <div 
       className={`section-header ${forceVisible ? '' : 'fade-in'}`} 
-      style={{ padding: 0, ...(forceVisible ? { opacity: 1, transform: 'none' } : {}) }}
+      style={{ padding: 0, margin: '0 auto 2rem', textAlign: 'center', ...(forceVisible ? { opacity: 1, transform: 'none' } : {}) }}
     >
       <h2 className="section-title">
         {lang === 'en' ? 'Meet Our Leadership' : <span className="devanagari">हाम्रो नेतृत्व</span>}
       </h2>
+      <TraditionalDivider style={{ margin: '0.8rem auto 0.5rem' }} />
     </div>
   );
 
@@ -296,6 +275,7 @@ export default function TeamSection({ content = {}, isLoading = false }) {
           </button>
         </div>
       )}
+      <SandyDivider bottomColor="#F8F5EE" />
     </section>
   );
 }
