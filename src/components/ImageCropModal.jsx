@@ -288,13 +288,13 @@ export default function ImageCropModal({ imageSrc, cropType, onConfirm, onClose 
                   padding: '8px 18px',
                   borderRadius: 8,
                   border: 'none',
-                  background: activeRatio === ratio.val ? 'var(--magenta)' : '#f1f5f9',
+                  background: activeRatio === ratio.val ? '#79213C' : '#f1f5f9',
                   color: activeRatio === ratio.val ? 'white' : '#64748b',
                   fontSize: '0.85rem',
                   fontWeight: 700,
                   cursor: 'pointer',
                   transition: 'all 0.2s',
-                  boxShadow: activeRatio === ratio.val ? '0 2px 8px rgba(226, 0, 122, 0.25)' : 'none'
+                  boxShadow: activeRatio === ratio.val ? '0 2px 8px rgba(121, 33, 60, 0.25)' : 'none'
                 }}
               >
                 {ratio.label}
@@ -309,7 +309,7 @@ export default function ImageCropModal({ imageSrc, cropType, onConfirm, onClose 
             Scale / Zoom
           </label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>➖</span>
+            <i className="fa-solid fa-minus" style={{ fontSize: '0.75rem', color: '#94a3b8' }}></i>
             <input
               type="range"
               min="1"
@@ -319,14 +319,14 @@ export default function ImageCropModal({ imageSrc, cropType, onConfirm, onClose 
               onChange={handleZoomChange}
               style={{
                 flexGrow: 1,
-                accentColor: 'var(--magenta)',
+                accentColor: '#79213C',
                 cursor: 'pointer',
                 height: '6px',
                 background: '#e2e8f0',
                 borderRadius: '3px',
               }}
             />
-            <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>➕</span>
+            <i className="fa-solid fa-plus" style={{ fontSize: '0.75rem', color: '#94a3b8' }}></i>
           </div>
         </div>
 
@@ -347,10 +347,10 @@ export default function ImageCropModal({ imageSrc, cropType, onConfirm, onClose 
           <button
             onClick={handleCrop}
             style={{
-              padding: '10px 24px', borderRadius: 10, background: 'var(--magenta)',
+              padding: '10px 24px', borderRadius: 10, background: '#79213C',
               border: 'none', color: 'white', fontWeight: 700, fontSize: '0.9rem',
               cursor: 'pointer', transition: 'all 0.25s',
-              boxShadow: '0 4px 12px rgba(226, 0, 122, 0.25)'
+              boxShadow: '0 4px 12px rgba(121, 33, 60, 0.25)'
             }}
             onMouseEnter={e => e.currentTarget.style.filter = 'brightness(1.1)'}
             onMouseLeave={e => e.currentTarget.style.filter = 'none'}

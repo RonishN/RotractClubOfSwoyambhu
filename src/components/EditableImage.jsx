@@ -118,7 +118,7 @@ export default function EditableImage({ src, alt, className, style, onChange, cr
           }}
           title={uploading ? 'Uploading…' : 'Click to replace image'}
           onMouseEnter={e => {
-            if (!uploading) e.currentTarget.style.boxShadow = '0 0 0 3px var(--magenta)';
+            if (!uploading) e.currentTarget.style.boxShadow = '0 0 0 3px #79213C';
           }}
           onMouseLeave={e => {
             e.currentTarget.style.boxShadow = 'none';
@@ -179,17 +179,19 @@ export default function EditableImage({ src, alt, className, style, onChange, cr
             position: 'absolute',
             top: cropType === 'circle' ? -4 : 8,
             right: cropType === 'circle' ? -4 : 8,
-            background: 'var(--magenta)',
+            background: '#79213C',
             color: 'white',
             padding: '4px 8px',
             borderRadius: '6px',
             fontSize: '11px',
-            boxShadow: '0 2px 8px rgba(226,0,122,0.45)',
+            boxShadow: '0 2px 8px rgba(121, 33, 60, 0.45)',
             pointerEvents: 'none',
             fontWeight: 600,
-            zIndex: 12
+            zIndex: 12,
+            display: 'inline-flex',
+            alignItems: 'center'
           }}>
-            ✏️ Edit
+            <i className="fa-solid fa-pen" style={{ fontSize: '10px', marginRight: 4 }}></i> Edit
           </div>
         )}
       </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Header from '../components/Header';
+import MobileBottomNav from '../components/MobileBottomNav';
 import HeroSection from '../components/HeroSection';
 import AboutSection from '../components/AboutSection';
 import TeamSection from '../components/TeamSection';
@@ -30,7 +31,7 @@ export default function Home() {
   return (
     <>
       <Header />
-      <main>
+      <main style={{ paddingBottom: '70px' }}>
         <HeroSection  content={content || {}} isLoading={isLoading} />
         <AboutSection content={content || {}} isLoading={isLoading} />
         <TeamSection  content={content || {}} isLoading={isLoading} />
@@ -39,6 +40,7 @@ export default function Home() {
         <ContactSection />
       </main>
       <Footer />
+      <MobileBottomNav />
     </>
   );
 }

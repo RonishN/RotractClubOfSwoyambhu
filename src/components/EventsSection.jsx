@@ -90,9 +90,11 @@ export default function EventsSection() {
                       href={ev.registrationLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ fontSize: '0.8rem', color: 'var(--saffron)', fontWeight: 700, textDecoration: 'none' }}
+                      style={{ fontSize: '0.82rem', color: '#79213C', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
                     >
-                      ✍️ Register Now →
+                      <i className="fa-solid fa-pen-to-square"></i>
+                      <span>Register Now</span>
+                      <i className="fa-solid fa-arrow-right" style={{ fontSize: '0.75rem' }}></i>
                     </a>
                   </div>
                 )}
@@ -110,30 +112,29 @@ export default function EventsSection() {
             display: 'inline-flex',
             alignItems: 'center',
             gap: '8px',
-            background: 'var(--saffron, #FF8A00)',
+            background: '#79213C',
             color: '#ffffff',
             padding: '12px 28px',
             borderRadius: '25px',
             fontWeight: 700,
             fontSize: '0.95rem',
             textDecoration: 'none',
-            boxShadow: '0 4px 14px rgba(255, 138, 0, 0.35)',
+            boxShadow: '0 4px 14px rgba(121, 33, 60, 0.3)',
             transition: 'all 0.2s ease'
           }}
           onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#561427';
             e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.boxShadow = '0 8px 20px rgba(255, 138, 0, 0.45)';
+            e.currentTarget.style.boxShadow = '0 8px 20px rgba(121, 33, 60, 0.45)';
           }}
           onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#79213C';
             e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 4px 14px rgba(255, 138, 0, 0.35)';
+            e.currentTarget.style.boxShadow = '0 4px 14px rgba(121, 33, 60, 0.3)';
           }}
         >
           <span>{lang === 'en' ? 'View All Events' : 'सबै कार्यक्रमहरू हेर्नुहोस्'}</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-            <polyline points="12 5 19 12 12 19"></polyline>
-          </svg>
+          <i className="fa-solid fa-arrow-right" style={{ fontSize: '0.9rem' }}></i>
         </Link>
       </div>
 

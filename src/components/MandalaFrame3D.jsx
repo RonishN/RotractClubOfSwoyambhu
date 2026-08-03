@@ -34,7 +34,7 @@ function MandalaRings() {
       {/* Outer elegant thin ring */}
       <mesh ref={outerRingRef}>
         <ringGeometry args={[1.42, 1.45, 64]} />
-        <meshBasicMaterial color="#FF8A00" side={THREE.DoubleSide} transparent opacity={0.6} />
+        <meshBasicMaterial color="#79213C" side={THREE.DoubleSide} transparent opacity={0.6} />
       </mesh>
 
       {/* 8-pointed Star / Double square lattice (Sacred Geometry) */}
@@ -42,19 +42,19 @@ function MandalaRings() {
         middleStar1Ref.current = middleStar11;
       }}>
         <ringGeometry args={[1.28, 1.30, 4]} />
-        <meshBasicMaterial color="#FFD13B" side={THREE.DoubleSide} transparent opacity={0.7} wireframe />
+        <meshBasicMaterial color="#b33a5d" side={THREE.DoubleSide} transparent opacity={0.7} wireframe />
       </mesh>
       <mesh ref={middleStar22 => {
         middleStar2Ref.current = middleStar22;
       }}>
         <ringGeometry args={[1.28, 1.30, 4]} />
-        <meshBasicMaterial color="#FF8A00" side={THREE.DoubleSide} transparent opacity={0.7} wireframe />
+        <meshBasicMaterial color="#561427" side={THREE.DoubleSide} transparent opacity={0.7} wireframe />
       </mesh>
 
       {/* Intermediate dotted orbit circle */}
       <mesh>
         <ringGeometry args={[1.36, 1.37, 48]} />
-        <meshBasicMaterial color="#FFD13B" side={THREE.DoubleSide} transparent opacity={0.25} />
+        <meshBasicMaterial color="#962d4c" side={THREE.DoubleSide} transparent opacity={0.25} />
       </mesh>
 
       {/* Outer frame points */}
@@ -66,7 +66,7 @@ function MandalaRings() {
           return (
             <mesh key={idx} position={[x, y, 0]}>
               <circleGeometry args={[0.024, 8]} />
-              <meshBasicMaterial color="#FFD13B" transparent opacity={0.9} />
+              <meshBasicMaterial color="#b33a5d" transparent opacity={0.9} />
             </mesh>
           );
         })}
@@ -75,7 +75,7 @@ function MandalaRings() {
       {/* Inner ring directly bordering the avatar */}
       <mesh ref={innerRingRef}>
         <ringGeometry args={[1.13, 1.15, 64]} />
-        <meshBasicMaterial color="#FFD13B" side={THREE.DoubleSide} transparent opacity={0.8} />
+        <meshBasicMaterial color="#79213C" side={THREE.DoubleSide} transparent opacity={0.8} />
       </mesh>
     </group>
   );

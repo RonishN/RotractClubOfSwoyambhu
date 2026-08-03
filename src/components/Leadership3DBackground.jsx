@@ -31,19 +31,19 @@ function RotatingGeometry() {
       {/* Outer subtle golden Torus wireframe */}
       <mesh ref={meshRef1}>
         <torusGeometry args={[3.2, 0.02, 16, 64]} />
-        <meshBasicMaterial color="#FFD13B" wireframe transparent opacity={0.3} />
+        <meshBasicMaterial color="#79213C" wireframe transparent opacity={0.3} />
       </mesh>
 
       {/* Inner sacred icosahedron wireframe */}
       <mesh ref={meshRef2}>
         <icosahedronGeometry args={[2.0, 1]} />
-        <meshBasicMaterial color="#FF8A00" wireframe transparent opacity={0.22} />
+        <meshBasicMaterial color="#b33a5d" wireframe transparent opacity={0.22} />
       </mesh>
 
       {/* Secondary accent ring */}
       <mesh rotation={[Math.PI / 3, 0, 0]}>
         <ringGeometry args={[2.6, 2.64, 48]} />
-        <meshBasicMaterial color="#FFD13B" side={THREE.DoubleSide} transparent opacity={0.25} />
+        <meshBasicMaterial color="#962d4c" side={THREE.DoubleSide} transparent opacity={0.25} />
       </mesh>
     </group>
   );
@@ -86,7 +86,7 @@ function ParticleField() {
       </bufferGeometry>
       <pointsMaterial
         size={0.12}
-        color="#FFD13B"
+        color="#79213C"
         transparent
         opacity={0.65}
         sizeAttenuation

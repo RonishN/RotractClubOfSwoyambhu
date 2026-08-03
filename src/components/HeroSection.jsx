@@ -54,9 +54,9 @@ export default function HeroSection({ content, isLoading }) {
         <div className="hero-content">
           {/* Subtitle / Badge */}
           <div className="hero-badge">
-            <span>✦</span>
+            <i className="fa-solid fa-star" style={{ fontSize: '0.65rem' }}></i>
             <span>{lang === 'en' ? 'ROTARY INTERNATIONAL DISTRICT 3292' : 'रोटरी इन्टरनेसनल डिष्ट्रिक्ट ३२९२'}</span>
-            <span>✦</span>
+            <i className="fa-solid fa-star" style={{ fontSize: '0.65rem' }}></i>
           </div>
 
           {/* Hero Title */}

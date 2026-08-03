@@ -12,23 +12,23 @@ function createMantraTexture() {
   canvas.height = 512;
   const ctx = canvas.getContext('2d');
 
-  // Rich antique brass/gold background gradient
+  // Rich burgundy background gradient
   const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  bgGrad.addColorStop(0, '#B8860B');
-  bgGrad.addColorStop(0.3, '#FFD700');
+  bgGrad.addColorStop(0, '#561427');
+  bgGrad.addColorStop(0.3, '#79213C');
   bgGrad.addColorStop(0.5, '#FFF8DC');
-  bgGrad.addColorStop(0.7, '#DAA520');
-  bgGrad.addColorStop(1, '#8B6508');
+  bgGrad.addColorStop(0.7, '#962d4c');
+  bgGrad.addColorStop(1, '#3d0c1b');
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // Top & Bottom Ornamental Borders
-  ctx.strokeStyle = '#5C4008';
+  ctx.strokeStyle = '#79213C';
   ctx.lineWidth = 6;
   ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
 
   // Lotus petal patterns top/bottom
-  ctx.fillStyle = '#6B420A';
+  ctx.fillStyle = '#b33a5d';
   ctx.font = '24px serif';
   ctx.textAlign = 'center';
   for (let x = 30; x < canvas.width; x += 60) {
@@ -37,7 +37,7 @@ function createMantraTexture() {
   }
 
   // Mantra text band across the cylinder
-  ctx.fillStyle = '#4A2800';
+  ctx.fillStyle = '#3d0c1b';
   ctx.font = 'bold 56px "NepaliFont", "Inter", sans-serif';
   ctx.textBaseline = 'middle';
   const mantra = 'ॐ  म  णि  प  द्मे  हूँ  ❖  ';
@@ -61,11 +61,11 @@ export default function PrayerWheel3D({ mousePosition = { x: 0, y: 0 } }) {
 
   const mantraTexture = useMemo(() => createMantraTexture(), []);
 
-  // Golden Brass Material Palette
+  // Burgundy Material Palette
   const brassMaterial = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: new THREE.Color('#FFC107'),
+        color: new THREE.Color('#79213C'),
         metalness: 0.85,
         roughness: 0.25,
       }),
@@ -75,7 +75,7 @@ export default function PrayerWheel3D({ mousePosition = { x: 0, y: 0 } }) {
   const darkGoldMaterial = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: new THREE.Color('#D4AF37'),
+        color: new THREE.Color('#561427'),
         metalness: 0.9,
         roughness: 0.2,
       }),

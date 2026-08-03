@@ -142,19 +142,23 @@ export default function InitiativesSection({ content = {}, isLoading = false }) 
             onClick={handleAdd}
             style={{
               background: 'transparent',
-              border: '2px dashed var(--magenta)',
-              color: 'var(--magenta)',
+              border: '2px dashed var(--primary)',
+              color: 'var(--primary)',
               padding: '12px 24px',
               borderRadius: '8px',
               cursor: 'pointer',
               fontWeight: 600,
               fontSize: '1rem',
-              transition: 'background 0.2s'
+              transition: 'background 0.2s',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8
             }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(226,0,122,0.05)'}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(121, 33, 60, 0.08)'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
-            + Add Initiative
+            <i className="fa-solid fa-plus"></i>
+            <span>Add Initiative</span>
           </button>
         </div>
       )}

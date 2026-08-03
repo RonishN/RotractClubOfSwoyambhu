@@ -22,9 +22,9 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
 // Icons
-const EditIcon = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
-const TrashIcon = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>;
-const DragIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg>;
+const EditIcon = () => <i className="fa-solid fa-pen" style={{ fontSize: '11px' }}></i>;
+const TrashIcon = () => <i className="fa-solid fa-trash-can" style={{ fontSize: '11px' }}></i>;
+const DragIcon = () => <i className="fa-solid fa-grip-vertical" style={{ fontSize: '12px' }}></i>;
 
 function PillBtn({ onClick, disabled, title, style = {}, children }) {
   return (
@@ -73,7 +73,7 @@ function SortableGalleryItem({ item, index, handleUpdate, handleDelete, setEditi
         <div style={{
           position: 'absolute', top: 8, right: 8, zIndex: 20,
           display: 'flex', alignItems: 'center', gap: 3,
-          background: 'rgba(10,16,36,0.88)', backdropFilter: 'blur(10px)',
+          background: 'rgba(36,7,19,0.88)', backdropFilter: 'blur(10px)',
           borderRadius: 50, padding: '4px 6px',
           boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
         }}>
@@ -90,7 +90,7 @@ function SortableGalleryItem({ item, index, handleUpdate, handleDelete, setEditi
         </div>
         <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.15)', margin: '0 2px' }} />
         <PillBtn onClick={() => setEditingCaptionIndex(index)} title="Edit Captions"
-          style={{ background: 'rgba(226,0,122,0.2)', color: '#fbcfe8' }}>
+          style={{ background: 'rgba(121, 33, 60, 0.25)', color: '#fbcfe8' }}>
           <EditIcon />
         </PillBtn>
         <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.15)', margin: '0 2px' }} />
@@ -103,8 +103,8 @@ function SortableGalleryItem({ item, index, handleUpdate, handleDelete, setEditi
 
       <div style={{
         borderRadius: 14, overflow: 'hidden', background: 'white',
-        border: isDragging ? '2px solid var(--magenta)' : '2px solid rgba(226,0,122,0.18)',
-        boxShadow: isDragging ? '0 10px 25px rgba(226,0,122,0.2)' : '0 4px 16px rgba(0,0,0,0.06)',
+        border: isDragging ? '2px solid #79213C' : '2px solid rgba(121, 33, 60, 0.18)',
+        boxShadow: isDragging ? '0 10px 25px rgba(121, 33, 60, 0.2)' : '0 4px 16px rgba(0,0,0,0.06)',
         transition: 'border-color 0.2s, box-shadow 0.2s',
       }}>
         <EditableImage
@@ -219,8 +219,8 @@ export default function GallerySection({ content = {} }) {
             onClick={handleAdd}
             style={{
               background: 'transparent',
-              border: '2px dashed var(--magenta)',
-              color: 'var(--magenta)',
+              border: '2px dashed #79213C',
+              color: '#79213C',
               padding: '12px 28px',
               borderRadius: 10,
               cursor: 'pointer',
@@ -232,10 +232,10 @@ export default function GallerySection({ content = {} }) {
               alignItems: 'center',
               gap: 8,
             }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(226,0,122,0.06)'}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(121, 33, 60, 0.08)'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
-            <span style={{ fontSize: '1.1rem' }}>＋</span> Add Image
+            <i className="fa-solid fa-plus"></i> Add Image
           </button>
         </div>
       )}
@@ -281,7 +281,7 @@ export default function GallerySection({ content = {} }) {
             </div>
             <button
               onClick={() => setEditingCaptionIndex(null)}
-              style={{ width: '100%', padding: '12px', background: 'var(--magenta)', color: 'white', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
+              style={{ width: '100%', padding: '12px', background: '#79213C', color: 'white', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
             >
               Done
             </button>

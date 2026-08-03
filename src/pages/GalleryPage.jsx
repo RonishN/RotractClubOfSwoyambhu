@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Masonry from 'react-masonry-css';
 import { useLang } from '../context/LanguageContext';
 import Header from '../components/Header';
+import MobileBottomNav from '../components/MobileBottomNav';
 import Footer from '../components/Footer';
 import { getPublicContent } from '../api/client';
 import useFadeIn from '../hooks/useFadeIn';
@@ -134,6 +135,7 @@ export default function GalleryPage() {
       )}
 
       <Footer />
+      <MobileBottomNav />
     </>
   );
 }

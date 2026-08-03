@@ -121,17 +121,17 @@ export default function TeamSection({ content = {}, isLoading = false }) {
                 position: 'absolute',
                 top: 0,
                 right: 0,
-                background: 'var(--magenta)',
+                background: '#79213C',
                 color: 'white',
                 padding: '4px 8px',
                 borderRadius: '6px',
                 fontSize: '11px',
-                boxShadow: '0 2px 8px rgba(226,0,122,0.45)',
+                boxShadow: '0 2px 8px rgba(121, 33, 60, 0.45)',
                 pointerEvents: 'none',
                 fontWeight: 600,
                 zIndex: 12
               }}>
-                ✏️
+                <i className="fa-solid fa-pen" style={{ fontSize: '10px' }}></i>
               </div>
             )}
           </div>
@@ -167,9 +167,7 @@ export default function TeamSection({ content = {}, isLoading = false }) {
                 title={`${m.name}'s LinkedIn`}
                 onClick={(e) => isEditMode && e.preventDefault()}
               >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                  <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.22a1.6 1.6 0 0 0-1.6 1.6c0 .88.72 1.6 1.6 1.6.88 0 1.6-.72 1.6-1.6 0-.88-.72-1.6-1.6-1.6Z"/>
-                </svg>
+                <i className="fa-brands fa-linkedin-in" style={{ fontSize: '13px' }}></i>
               </a>
             )}
             {hasEmail && (
@@ -179,9 +177,7 @@ export default function TeamSection({ content = {}, isLoading = false }) {
                 title={`Email ${m.name}`}
                 onClick={(e) => isEditMode && e.preventDefault()}
               >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                  <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
-                </svg>
+                <i className="fa-solid fa-envelope" style={{ fontSize: '13px' }}></i>
               </a>
             )}
           </div>
@@ -252,26 +248,30 @@ export default function TeamSection({ content = {}, isLoading = false }) {
             onClick={handleAdd}
             style={{
               background: '#FFFFFF',
-              border: '2px dashed var(--magenta)',
-              color: 'var(--magenta)',
+              border: '2px dashed #79213C',
+              color: '#79213C',
               padding: '12px 28px',
               borderRadius: '50px',
               cursor: 'pointer',
               fontWeight: 700,
               fontSize: '0.95rem',
               transition: 'all 0.2s',
-              boxShadow: '0 4px 14px rgba(226,0,122,0.15)'
+              boxShadow: '0 4px 14px rgba(121, 33, 60, 0.15)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.background = 'var(--magenta)';
+              e.currentTarget.style.background = '#79213C';
               e.currentTarget.style.color = '#FFFFFF';
             }}
             onMouseLeave={e => {
               e.currentTarget.style.background = '#FFFFFF';
-              e.currentTarget.style.color = 'var(--magenta)';
+              e.currentTarget.style.color = '#79213C';
             }}
           >
-            + Add Team Member
+            <i className="fa-solid fa-user-plus"></i>
+            <span>Add Team Member</span>
           </button>
         </div>
       )}

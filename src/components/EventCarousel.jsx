@@ -49,9 +49,7 @@ export default function EventCarousel({ pictures = [], title = '', onImageClick,
               cursor: 'pointer', backdropFilter: 'blur(4px)', transition: 'background 0.2s', zIndex: 10
             }}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6"></polyline>
-            </svg>
+            <i className="fa-solid fa-chevron-left" style={{ fontSize: '14px' }}></i>
           </button>
 
           <button
@@ -65,9 +63,7 @@ export default function EventCarousel({ pictures = [], title = '', onImageClick,
               cursor: 'pointer', backdropFilter: 'blur(4px)', transition: 'background 0.2s', zIndex: 10
             }}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
+            <i className="fa-solid fa-chevron-right" style={{ fontSize: '14px' }}></i>
           </button>
 
           {/* Dots / Badge */}
@@ -82,7 +78,7 @@ export default function EventCarousel({ pictures = [], title = '', onImageClick,
                 onClick={(e) => { e.stopPropagation(); setCurrentIndex(idx); }}
                 style={{
                   width: 8, height: 8, borderRadius: '50%', cursor: 'pointer',
-                  background: idx === currentIndex ? '#FF8A00' : 'rgba(255,255,255,0.5)',
+                  background: idx === currentIndex ? '#79213C' : 'rgba(255,255,255,0.5)',
                   transition: 'background 0.2s'
                 }}
               />

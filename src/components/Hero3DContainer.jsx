@@ -46,12 +46,12 @@ export default function Hero3DContainer() {
         style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
       >
         <ambientLight intensity={1.2} />
-        {/* Warm Golden Key Light */}
-        <directionalLight position={[4, 5, 4]} intensity={2.2} color="#FFF8DC" />
-        {/* Rim Saffron Fill Light */}
-        <directionalLight position={[-4, -2, -3]} intensity={1.5} color="#FF9933" />
-        {/* Top Jewel Highlight */}
-        <pointLight position={[0, 3, 2]} intensity={1.0} color="#FFD700" />
+        {/* Warm burgundy key light */}
+        <directionalLight position={[4, 5, 4]} intensity={2.2} color="#FDF2F4" />
+        {/* Rim burgundy fill light */}
+        <directionalLight position={[-4, -2, -3]} intensity={1.5} color="#962d4c" />
+        {/* Top highlight */}
+        <pointLight position={[0, 3, 2]} intensity={1.0} color="#b33a5d" />
 
         <Suspense fallback={null}>
           <PrayerWheel3D mousePosition={mousePos} />
@@ -67,7 +67,7 @@ export default function Hero3DContainer() {
           transform: 'translateX(-50%)',
           width: '140px',
           height: '24px',
-          background: 'radial-gradient(ellipse, rgba(255, 209, 59, 0.45) 0%, rgba(255, 138, 0, 0) 75%)',
+          background: 'radial-gradient(ellipse, rgba(121, 33, 60, 0.45) 0%, rgba(121, 33, 60, 0) 75%)',
           filter: 'blur(8px)',
           pointerEvents: 'none',
           zIndex: -1,

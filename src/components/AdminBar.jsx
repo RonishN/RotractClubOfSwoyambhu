@@ -127,9 +127,7 @@ export default function AdminBar({ onSwitchToHistory, onLogout }) {
               e.currentTarget.style.color = 'rgba(255,255,255,0.75)';
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
+            <i className="fa-solid fa-clock-rotate-left" style={{ fontSize: '13px' }}></i>
             History
           </button>
 
@@ -189,12 +187,12 @@ export default function AdminBar({ onSwitchToHistory, onLogout }) {
               width: '46px',
               height: '26px',
               background: isEditMode
-                ? 'linear-gradient(135deg, var(--saffron), var(--magenta))'
+                ? 'linear-gradient(135deg, #79213C, #9E2D50)'
                 : 'rgba(255,255,255,0.15)',
               borderRadius: '13px',
               position: 'relative',
               transition: 'background 0.35s',
-              boxShadow: isEditMode ? '0 0 12px rgba(232,135,26,0.4)' : 'none',
+              boxShadow: isEditMode ? '0 0 12px rgba(121,33,60,0.5)' : 'none',
               border: '1px solid rgba(255,255,255,0.1)',
             }}>
               <div style={{
@@ -224,21 +222,21 @@ export default function AdminBar({ onSwitchToHistory, onLogout }) {
           {hasChanges && isEditMode && (
             <div style={{
               fontSize: '0.82rem',
-              color: '#fbbf24',
+              color: '#b33a5d',
               display: 'flex',
               alignItems: 'center',
               gap: '7px',
               fontWeight: 600,
-              background: 'rgba(251,191,36,0.1)',
+              background: 'rgba(121,33,60,0.1)',
               padding: '4px 12px',
               borderRadius: '20px',
-              border: '1px solid rgba(251,191,36,0.2)',
+              border: '1px solid rgba(121,33,60,0.2)',
             }}>
               <span style={{
                 width: '7px', height: '7px',
-                background: '#fbbf24',
+                background: '#79213C',
                 borderRadius: '50%',
-                boxShadow: '0 0 8px rgba(251,191,36,0.7)',
+                boxShadow: '0 0 8px rgba(121,33,60,0.7)',
                 display: 'inline-block',
               }} />
               Unsaved Changes
@@ -247,17 +245,18 @@ export default function AdminBar({ onSwitchToHistory, onLogout }) {
           {sessionWarning && (
             <div style={{
               fontSize: '0.8rem',
-              color: minutesLeft <= 5 ? '#ef4444' : '#f97316',
+              color: minutesLeft <= 5 ? '#ef4444' : '#b33a5d',
               display: 'flex',
               alignItems: 'center',
-              gap: '5px',
+              gap: '6px',
               fontWeight: 500,
-              background: minutesLeft <= 5 ? 'rgba(239,68,68,0.12)' : 'rgba(249,115,22,0.12)',
+              background: minutesLeft <= 5 ? 'rgba(239,68,68,0.12)' : 'rgba(121,33,60,0.12)',
               padding: '4px 12px',
               borderRadius: '20px',
-              border: `1px solid ${minutesLeft <= 5 ? 'rgba(239,68,68,0.3)' : 'rgba(249,115,22,0.3)'}`,
+              border: `1px solid ${minutesLeft <= 5 ? 'rgba(239,68,68,0.3)' : 'rgba(121,33,60,0.3)'}`,
             }}>
-              ⏱ Session expires in {minutesLeft}m
+              <i className="fa-regular fa-clock"></i>
+              <span>Session expires in {minutesLeft}m</span>
             </div>
           )}
         </div>
@@ -297,7 +296,7 @@ export default function AdminBar({ onSwitchToHistory, onLogout }) {
               disabled={!hasChanges || saving}
               style={{
                 background: hasChanges
-                  ? 'linear-gradient(135deg, var(--magenta), #a8005c)'
+                  ? 'linear-gradient(135deg, #79213C, #561427)'
                   : 'rgba(255,255,255,0.08)',
                 color: hasChanges ? 'white' : 'rgba(255,255,255,0.25)',
                 border: 'none',
@@ -314,7 +313,7 @@ export default function AdminBar({ onSwitchToHistory, onLogout }) {
                 position: 'relative',
                 overflow: 'hidden',
                 transition: 'all 0.25s',
-                boxShadow: hasChanges ? '0 4px 16px rgba(226,0,122,0.4)' : 'none',
+                boxShadow: hasChanges ? '0 4px 16px rgba(121,33,60,0.4)' : 'none',
                 letterSpacing: '0.3px',
               }}
             >
@@ -326,11 +325,7 @@ export default function AdminBar({ onSwitchToHistory, onLogout }) {
                 </>
               ) : (
                 <>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                    <polyline points="17 21 17 13 7 13 7 21" />
-                    <polyline points="7 3 7 8 15 8" />
-                  </svg>
+                  <i className="fa-solid fa-floppy-disk" style={{ fontSize: '13px' }}></i>
                   Save All
                 </>
               )}
@@ -390,7 +385,7 @@ export default function AdminBar({ onSwitchToHistory, onLogout }) {
             background: 'white',
             borderRadius: '16px',
             boxShadow: '0 16px 40px rgba(15, 23, 42, 0.15), 0 0 0 1px rgba(15, 23, 42, 0.05)',
-            borderLeft: `6px solid ${toast.type === 'success' ? '#10b981' : '#e2007a'}`,
+            borderLeft: `6px solid ${toast.type === 'success' ? '#10b981' : '#79213C'}`,
             display: 'flex',
             padding: '16px 20px',
             alignItems: 'flex-start',
@@ -402,23 +397,16 @@ export default function AdminBar({ onSwitchToHistory, onLogout }) {
             width: '40px',
             height: '40px',
             borderRadius: '50%',
-            background: toast.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(226,0,122,0.1)',
+            background: toast.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(121,33,60,0.12)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0
           }}>
             {toast.type === 'success' ? (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-                stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
+              <i className="fa-solid fa-check" style={{ color: '#10b981', fontSize: '18px' }}></i>
             ) : (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-                stroke="#e2007a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
+              <i className="fa-solid fa-triangle-exclamation" style={{ color: '#79213C', fontSize: '18px' }}></i>
             )}
           </div>
 

@@ -120,7 +120,7 @@ export default function ManageAdmins() {
     setError('');
     try {
       await sendAdminCredentials(createdInfo.username, createdInfo.email, createdInfo.tempPassword);
-      setEmailSentStatus(`✅ Credentials email sent successfully to ${createdInfo.email}`);
+      setEmailSentStatus(`Credentials email sent successfully to ${createdInfo.email}`);
     } catch (err) {
       setError(err.message || 'Failed to send credentials email');
     } finally {
@@ -184,15 +184,18 @@ export default function ManageAdmins() {
 
   return (
     <div className="admin-card">
-      <div className="admin-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div className="admin-page-header-row">
         <div>
           <h2 className="admin-page-title serif">Manage Admins</h2>
           <p className="admin-page-subtitle">Create and manage access levels and user permissions for administrative accounts.</p>
         </div>
         {canCreate && (
-          <button className="admin-btn admin-btn-primary" onClick={openCreateModal} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            + Create New Admin
-          </button>
+          <div className="admin-header-actions">
+            <button className="admin-btn admin-btn-primary" onClick={openCreateModal} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <i className="fa-solid fa-plus"></i>
+              <span>Create New Admin</span>
+            </button>
+          </div>
         )}
       </div>
       
@@ -226,11 +229,11 @@ export default function ManageAdmins() {
                 onClick={closeCreateModal}
                 style={{
                   background: '#f1f5f9', border: 'none', borderRadius: '50%',
-                  width: 32, height: 32, cursor: 'pointer', fontSize: '1.1rem',
+                  width: 32, height: 32, cursor: 'pointer', fontSize: '0.9rem',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b'
                 }}
               >
-                ✕
+                <i className="fa-solid fa-xmark"></i>
               </button>
             </div>
 
@@ -285,7 +288,10 @@ export default function ManageAdmins() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                 <div className="login-alert login-alert-info" style={{ background: '#dcfce7', color: '#166534', borderColor: '#bbf7d0', padding: 20 }}>
-                  <div style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 8 }}>🎉 Admin Account Created Successfully!</div>
+                  <div style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <i className="fa-solid fa-circle-check" style={{ color: '#16a34a' }}></i>
+                    <span>Admin Account Created Successfully!</span>
+                  </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.9rem' }}>
                     <div><strong>Username:</strong> {createdInfo.username}</div>
                     <div><strong>Email:</strong> {createdInfo.email}</div>
@@ -294,8 +300,9 @@ export default function ManageAdmins() {
                 </div>
 
                 {emailSentStatus && (
-                  <div className="login-alert login-alert-info" style={{ background: '#eff6ff', color: '#1e40af', borderColor: '#bfdbfe' }}>
-                    {emailSentStatus}
+                  <div className="login-alert login-alert-info" style={{ background: 'rgba(121,33,60,0.08)', color: '#561427', borderColor: 'rgba(121,33,60,0.2)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <i className="fa-solid fa-circle-check" style={{ color: '#79213C' }}></i>
+                    <span>{emailSentStatus}</span>
                   </div>
                 )}
 
@@ -310,11 +317,8 @@ export default function ManageAdmins() {
                     disabled={sendingEmail}
                     style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, padding: '12px' }}
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                      <polyline points="22,6 12,13 2,6"></polyline>
-                    </svg>
-                    {sendingEmail ? 'Sending Email via Google SMTP...' : `Send Credentials to ${createdInfo.email}`}
+                    <i className="fa-solid fa-envelope"></i>
+                    <span>{sendingEmail ? 'Sending Email via Google SMTP...' : `Send Credentials to ${createdInfo.email}`}</span>
                   </button>
                 </div>
 
@@ -332,76 +336,143 @@ export default function ManageAdmins() {
       <div>
         <h3 className="admin-card-title">Existing Admins</h3>
         {loading ? <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}><span className="admin-spinner" style={{ borderTopColor: 'var(--navy)' }} /></div> : (
-          <div className="admin-table-container">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>User & Email</th>
-                  <th>Role</th>
-                  <th>Permissions</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map(u => (
-                  <tr key={u.username}>
-                    <td>
-                      <div style={{ fontWeight: 600, color: '#0f172a' }}>{u.username}</div>
-                      {u.email && <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{u.email}</div>}
-                    </td>
-                    <td>
-                      <span className={`admin-badge ${u.role === 'SUPERADMIN' ? 'admin-badge-warning' : 'admin-badge-info'}`}>
-                        {u.role}
-                      </span>
-                    </td>
-                    <td>
-                      {u.role === 'SUPERADMIN' ? (
-                        <span className="admin-badge admin-badge-neutral">ALL (SUPERADMIN)</span>
-                      ) : (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                          {u.permissions && u.permissions.length > 0 ? (
-                            u.permissions.map(p => (
-                              <span key={p} className="admin-badge admin-badge-neutral">{p.replace('_', ' ')}</span>
-                            ))
+          <>
+            {/* Desktop Table View */}
+            <div className="admin-table-container desktop-only-table">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Permissions</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id}>
+                      <td>
+                        <div style={{ fontWeight: 600, color: '#0f172a' }}>{u.username}</div>
+                      </td>
+                      <td>
+                        <span className={`admin-badge ${u.role === 'SUPERADMIN' ? 'admin-badge-info' : 'admin-badge-neutral'}`}>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`admin-badge ${u.is_active ? 'admin-badge-success' : 'admin-badge-danger'}`}>
+                          {u.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                          {u.role === 'SUPERADMIN' ? (
+                            <span className="admin-badge admin-badge-info">FULL ACCESS</span>
                           ) : (
-                            <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>No permissions assigned</span>
+                            u.permissions?.map((p) => (
+                              <span key={p} className="admin-badge admin-badge-neutral">{p}</span>
+                            ))
                           )}
                         </div>
-                      )}
-                    </td>
-                    <td>
-                      <span className={`admin-badge ${u.is_active ? 'admin-badge-success' : 'admin-badge-danger'}`}>
-                        {u.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        {canEditPermissions && u.role !== 'SUPERADMIN' && (
-                          <button className="admin-btn admin-btn-primary" onClick={() => openEditPermissionsModal(u)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-                            Edit Perms
-                          </button>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {canEditPermissions && u.role !== 'SUPERADMIN' && (
+                            <button className="admin-btn admin-btn-primary" onClick={() => openEditPermissionsModal(u)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
+                              Edit Perms
+                            </button>
+                          )}
+                          {canDeactivate && u.username !== currentUser.username && u.role !== 'SUPERADMIN' && (
+                            <button className="admin-btn admin-btn-outline" onClick={() => handleToggle(u.username, u.is_active)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
+                              {u.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                          )}
+                          {canReset && u.username !== currentUser.username && (
+                            <button className="admin-btn admin-btn-outline" onClick={() => handleGenerateCode(u.username)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>Reset Code</button>
+                          )}
+                          {canDelete && u.username !== currentUser.username && u.role !== 'SUPERADMIN' && (
+                            <button className="admin-btn admin-btn-danger" onClick={() => handleDelete(u.username)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>Delete</button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Touch Cards View */}
+            <div className="mobile-only-cards">
+              {users.map((u) => (
+                <div key={u.id} className="mobile-admin-card">
+                  <div className="mobile-card-top">
+                    <div>
+                      <h4 className="mobile-card-title">{u.username}</h4>
+                      <div className="mobile-card-subtitle">Role: {u.role}</div>
+                    </div>
+                    <span className={`admin-badge ${u.is_active ? 'admin-badge-success' : 'admin-badge-danger'}`}>
+                      {u.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+
+                  <div className="mobile-card-tags">
+                    {u.role === 'SUPERADMIN' ? (
+                      <span className="admin-badge admin-badge-info">FULL ACCESS</span>
+                    ) : (
+                      u.permissions?.map((p) => (
+                        <span key={p} className="admin-badge admin-badge-neutral">{p}</span>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="mobile-card-actions">
+                    {canEditPermissions && u.role !== 'SUPERADMIN' && (
+                      <button className="admin-btn admin-btn-primary" onClick={() => openEditPermissionsModal(u)} style={{ padding: '8px 12px', fontSize: '0.82rem' }}>
+                        <i className="fa-solid fa-pen" style={{ marginRight: 4 }}></i> Perms
+                      </button>
+                    )}
+                    {canDeactivate && u.username !== currentUser.username && u.role !== 'SUPERADMIN' && (
+                      <button className="admin-btn admin-btn-outline" onClick={() => handleToggle(u.username, u.is_active)} style={{ padding: '8px 12px', fontSize: '0.82rem' }}>
+                        {u.is_active ? (
+                          <>
+                            <i className="fa-solid fa-ban" style={{ marginRight: 4 }}></i> Deactivate
+                          </>
+                        ) : (
+                          <>
+                            <i className="fa-solid fa-check" style={{ marginRight: 4 }}></i> Activate
+                          </>
                         )}
-                        {canDeactivate && u.username !== currentUser.username && u.role !== 'SUPERADMIN' && (
-                          <button className="admin-btn admin-btn-outline" onClick={() => handleToggle(u.username, u.is_active)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-                            {u.is_active ? 'Deactivate' : 'Activate'}
-                          </button>
-                        )}
-                        {canReset && u.username !== currentUser.username && (
-                          <button className="admin-btn admin-btn-outline" onClick={() => handleGenerateCode(u.username)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>Reset Code</button>
-                        )}
-                        {canDelete && u.username !== currentUser.username && u.role !== 'SUPERADMIN' && (
-                          <button className="admin-btn admin-btn-danger" onClick={() => handleDelete(u.username)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>Delete</button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      </button>
+                    )}
+                    {canReset && u.username !== currentUser.username && (
+                      <button className="admin-btn admin-btn-outline" onClick={() => handleGenerateCode(u.username)} style={{ padding: '8px 12px', fontSize: '0.82rem' }}>
+                        <i className="fa-solid fa-key" style={{ marginRight: 4 }}></i> Reset
+                      </button>
+                    )}
+                    {canDelete && u.username !== currentUser.username && u.role !== 'SUPERADMIN' && (
+                      <button className="admin-btn admin-btn-danger" onClick={() => handleDelete(u.username)} style={{ padding: '8px 12px', fontSize: '0.82rem' }}>
+                        <i className="fa-solid fa-trash-can" style={{ marginRight: 4 }}></i> Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
+
+      {canCreate && (
+        <button 
+          className="admin-mobile-fab"
+          onClick={openCreateModal}
+          title="Create New Admin"
+          aria-label="Create Admin"
+        >
+          <i className="fa-solid fa-plus"></i>
+        </button>
+      )}
 
       {/* Edit Permissions Modal */}
       {editingUser && (
@@ -425,8 +496,8 @@ export default function ManageAdmins() {
               {ALL_AVAILABLE_PERMISSIONS.map(perm => (
                 <label key={perm} style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
-                  background: editPerms[perm] ? '#eff6ff' : '#f8fafc',
-                  border: editPerms[perm] ? '1px solid #93c5fd' : '1px solid #e2e8f0',
+                  background: editPerms[perm] ? 'rgba(121,33,60,0.08)' : '#f8fafc',
+                  border: editPerms[perm] ? '1px solid rgba(121,33,60,0.2)' : '1px solid #e2e8f0',
                   borderRadius: 8, cursor: 'pointer', transition: 'all 0.15s ease'
                 }}>
                   <input

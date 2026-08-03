@@ -52,7 +52,8 @@ export default function AuditLogs() {
           Showing {logs.length} of {totalCount} logs, page {page} of {totalPages}.
         </p>
       </div>
-      <div className="admin-table-container">
+      {/* Desktop Table View */}
+      <div className="admin-table-container desktop-only-table">
         <table className="admin-table">
           <thead>
             <tr>
@@ -81,6 +82,33 @@ export default function AuditLogs() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Touch Cards View */}
+      <div className="mobile-only-cards">
+        {logs.length === 0 ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8' }}>No logs found.</div>
+        ) : (
+          logs.map((log) => (
+            <div key={log.id || log._id} className="mobile-admin-card">
+              <div className="mobile-card-top">
+                <div>
+                  <h4 className="mobile-card-title">{log.action}</h4>
+                  <div className="mobile-card-subtitle">👤 {log.username}</div>
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                  {new Date(log.created_at).toLocaleDateString()}
+                </div>
+              </div>
+              <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: 8 }}>
+                ⏰ {new Date(log.created_at).toLocaleTimeString()}
+              </div>
+              <pre style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'pre-wrap', background: '#f8fafc', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', overflowX: 'auto' }}>
+                {JSON.stringify(log.details || {}, null, 2)}
+              </pre>
+            </div>
+          ))
+        )}
       </div>
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 20 }}>
         <button className="admin-btn admin-btn-outline" onClick={() => goToPage(page - 1)} disabled={page <= 1}>

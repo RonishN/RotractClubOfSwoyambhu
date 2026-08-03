@@ -29,27 +29,9 @@ export default function CookieConsent() {
   if (!show) return null;
 
   return (
-    <div style={{
-      position: 'fixed',
-      bottom: '24px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      backgroundColor: 'rgba(10, 16, 36, 0.95)',
-      backdropFilter: 'blur(10px)',
-      color: 'var(--white)',
-      padding: '20px 24px',
-      borderRadius: '16px',
-      boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-      zIndex: 9999,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '16px',
-      width: '90%',
-      maxWidth: '500px',
-      border: '1px solid rgba(255,255,255,0.1)'
-    }}>
+    <div className="cookie-consent-banner">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <h4 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--saffron)' }}>
+        <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#e2b3be' }}>
           {lang === 'en' ? 'Cookie Consent' : <span className="devanagari">कुकी सहमति</span>}
         </h4>
         <p style={{ margin: 0, fontSize: '0.9rem', opacity: 0.9, lineHeight: 1.5 }}>
@@ -80,7 +62,7 @@ export default function CookieConsent() {
         <button 
           onClick={handleAccept}
           style={{
-            background: 'var(--magenta)',
+            background: '#79213C',
             border: 'none',
             color: 'white',
             padding: '8px 20px',

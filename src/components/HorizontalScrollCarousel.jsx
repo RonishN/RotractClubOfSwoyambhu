@@ -1,15 +1,29 @@
-import React, { useRef, useEffect, useState, useLayoutEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { motion, useMotionValue, useSpring, useTransform, animate } from 'framer-motion';
 
 export default function HorizontalScrollCarousel({ items, renderItem, chunkSize = 8, header }) {
   const containerRef = useRef(null);
   const stickyRef = useRef(null);
   const trackRef = useRef(null);
+  const touchTrackRef = useRef(null);
+
   const [maxScroll, setMaxScroll] = useState(0);
   const [innerHeight, setInnerHeight] = useState(0);
   const [currentProgress, setCurrentProgress] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+  const [activeMobileIndex, setActiveMobileIndex] = useState(0);
 
-  // Framer Motion values for buttery smooth scrolling
+  // Detect mobile view (< 768px)
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Framer Motion values for desktop smooth scrolling
   const rawProgress = useMotionValue(0);
   const smoothProgress = useSpring(rawProgress, {
     stiffness: 200,
@@ -18,7 +32,7 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
   });
   const xTransform = useTransform(smoothProgress, [0, 1], [0, -maxScroll]);
 
-  // Track progress state for button disabled states
+  // Track progress state
   useEffect(() => {
     const unsub = smoothProgress.on('change', v => {
       setCurrentProgress(v);
@@ -26,18 +40,18 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
     return () => unsub();
   }, [smoothProgress]);
 
-  // We chunk the items into rows of max chunkSize
+  // Desktop rows
   const rows = [];
   for (let i = 0; i < items.length; i += chunkSize) {
     rows.push(items.slice(i, i + chunkSize));
   }
 
   // Handle Resize recalculation
-  useLayoutEffect(() => {
+  useEffect(() => {
+    if (isMobile) return;
     const updateDimensions = () => {
       if (trackRef.current && containerRef.current) {
         const containerWidth = window.innerWidth;
-        // Total scrollable width minus visible viewport plus generous end padding
         const padding = containerWidth * 0.12;
         const overflow = trackRef.current.scrollWidth - containerWidth + padding;
         setMaxScroll(Math.max(0, overflow));
@@ -53,14 +67,14 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
       clearTimeout(timer);
       window.removeEventListener('resize', updateDimensions);
     };
-  }, [items]);
+  }, [items, isMobile]);
 
-  // Highly responsive speed factor: scrolls through cards much faster
   const speedFactor = 2.0;
   const scrollDistance = maxScroll > 0 ? (maxScroll / speedFactor) * 1.3 : 0;
-  const scrollHeight = maxScroll > 0 ? `calc(${innerHeight || 500}px + ${scrollDistance}px)` : 'auto';
+  const scrollHeight = !isMobile && maxScroll > 0 ? `calc(${innerHeight || 500}px + ${scrollDistance}px)` : 'auto';
 
   useEffect(() => {
+    if (isMobile) return;
     const handleScroll = () => {
       const container = containerRef.current;
       if (!container || maxScroll <= 0) {
@@ -69,13 +83,11 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
       }
 
       const { top } = container.getBoundingClientRect();
-      const stickyTop = 85; // Fixed comfortable top offset in pixels
+      const stickyTop = 85;
       
       let progress = 0;
       if (scrollDistance > 0) {
         const rawRatio = (stickyTop - top) / scrollDistance;
-        // Reaches 100% horizontal scroll at 65% of vertical scroll distance,
-        // giving a comfortable hold window before the section unpins!
         progress = Math.max(0, Math.min(1, rawRatio / 0.65));
       }
       
@@ -86,23 +98,85 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
     handleScroll();
     
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [items, maxScroll, scrollDistance, rawProgress]);
+  }, [items, maxScroll, scrollDistance, rawProgress, isMobile]);
 
-  // Arrow button navigation
-  const scrollNext = useCallback(() => {
-    if (maxScroll <= 0) return;
-    const step = 0.35;
-    const target = Math.min(1, rawProgress.get() + step);
-    animate(rawProgress, target, { duration: 0.45, ease: [0.16, 1, 0.3, 1] });
-  }, [maxScroll, rawProgress]);
+  // Mobile Touch Swipe Handler
+  const handleTouchScroll = () => {
+    if (!touchTrackRef.current) return;
+    const el = touchTrackRef.current;
+    const scrollPosition = el.scrollLeft;
+    const cardWidth = el.offsetWidth * 0.85; // Approx width of card on mobile
+    const index = Math.round(scrollPosition / cardWidth);
+    setActiveMobileIndex(Math.min(items.length - 1, Math.max(0, index)));
+  };
 
-  const scrollPrev = useCallback(() => {
-    if (maxScroll <= 0) return;
-    const step = 0.35;
-    const target = Math.max(0, rawProgress.get() - step);
-    animate(rawProgress, target, { duration: 0.45, ease: [0.16, 1, 0.3, 1] });
-  }, [maxScroll, rawProgress]);
+  const scrollToMobileIndex = (idx) => {
+    if (!touchTrackRef.current) return;
+    const el = touchTrackRef.current;
+    const cardWidth = el.offsetWidth * 0.85;
+    el.scrollTo({
+      left: idx * cardWidth,
+      behavior: 'smooth'
+    });
+    setActiveMobileIndex(idx);
+  };
 
+  // MOBILE RESPONSIVE TOUCH CAROUSEL MODE
+  if (isMobile) {
+    return (
+      <div className="mobile-touch-carousel-wrapper">
+        <div style={{ padding: '0 5%', marginBottom: '1rem' }}>
+          {header}
+        </div>
+
+        {/* Touch Swipe Track */}
+        <div 
+          ref={touchTrackRef}
+          className="mobile-touch-swipe-track"
+          onScroll={handleTouchScroll}
+        >
+          {items.map((item, index) => (
+            <div key={index} className="mobile-touch-slide">
+              {renderItem(item, index)}
+            </div>
+          ))}
+        </div>
+
+        {/* Mobile Carousel Indicators & Navigation */}
+        <div className="mobile-carousel-controls">
+          <button 
+            className="mobile-arrow-btn"
+            disabled={activeMobileIndex === 0}
+            onClick={() => scrollToMobileIndex(activeMobileIndex - 1)}
+            aria-label="Previous card"
+          >
+            ‹
+          </button>
+          
+          <div className="mobile-dots-indicator">
+            {items.map((_, idx) => (
+              <span 
+                key={idx}
+                className={`mobile-dot ${idx === activeMobileIndex ? 'active' : ''}`}
+                onClick={() => scrollToMobileIndex(idx)}
+              />
+            ))}
+          </div>
+
+          <button 
+            className="mobile-arrow-btn"
+            disabled={activeMobileIndex === items.length - 1}
+            onClick={() => scrollToMobileIndex(activeMobileIndex + 1)}
+            aria-label="Next card"
+          >
+            ›
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // DESKTOP HORIZONTAL SCROLL MODE
   return (
     <div ref={containerRef} style={{ height: scrollHeight, position: 'relative' }}>
       <div 
@@ -120,7 +194,6 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
           zIndex: 10
         }}
       >
-        {/* Header with Navigation Controls */}
         <div style={{ 
           width: '100%', 
           padding: '0 5%', 
@@ -136,7 +209,6 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
           </div>
         </div>
 
-        {/* Dynamic Glowing Scroll Progress Bar */}
         {maxScroll > 0 && (
           <div style={{ width: '90%', margin: '0 auto 2.5rem', padding: '0 5%' }}>
             <div style={{
@@ -161,7 +233,6 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
           </div>
         )}
 
-        {/* Track Container */}
         <div style={{ width: '100%', overflow: 'hidden', padding: '0 5%' }}>
           <motion.div 
             ref={trackRef}

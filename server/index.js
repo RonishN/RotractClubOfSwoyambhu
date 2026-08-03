@@ -980,8 +980,12 @@ function generateRandomPassword() {
 }
 
 function validatePasswordComplexity(password) {
-  const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-  return regex.test(password);
+  if (typeof password !== 'string' || password.length < 8) return false;
+  const hasLower = /[a-z]/.test(password);
+  const hasUpper = /[A-Z]/.test(password);
+  const hasDigit = /\d/.test(password);
+  const hasSpecial = /[^a-zA-Z0-9]/.test(password);
+  return hasLower && hasUpper && hasDigit && hasSpecial;
 }
 
 app.get('/api/admin/users', requireAuth, async (req, res) => {

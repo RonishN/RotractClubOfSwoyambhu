@@ -5,16 +5,27 @@ import { checkAdminSession, loginAdmin } from '../api/client';
 
 export default function Login() {
   const navigate = useNavigate();
-  const [username, setUsername]     = useState('');
-  const [password, setPassword]     = useState('');
-  const [showPass, setShowPass]     = useState(false);
-  const [error, setError]           = useState('');
-  const [loading, setLoading]       = useState(false);
-  const [checking, setChecking]     = useState(true);
-  const [view, setView]             = useState('LOGIN'); // LOGIN, FORGOT, FORCE_CHANGE
-  const [resetCode, setResetCode]   = useState('');
+  const [username, setUsername]       = useState('');
+  const [password, setPassword]       = useState('');
+  const [showPass, setShowPass]       = useState(false);
+  const [error, setError]             = useState('');
+  const [loading, setLoading]         = useState(false);
+  const [checking, setChecking]       = useState(true);
+  const [view, setView]               = useState('LOGIN'); // LOGIN, FORGOT, FORCE_CHANGE
+  const [resetCode, setResetCode]     = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [tempToken, setTempToken]   = useState(null);
+  const [tempToken, setTempToken]     = useState(null);
+
+  // Live password validation checklist status
+  const passChecklist = {
+    length: newPassword.length >= 8,
+    uppercase: /[A-Z]/.test(newPassword),
+    lowercase: /[a-z]/.test(newPassword),
+    number: /\d/.test(newPassword),
+    special: /[^a-zA-Z0-9]/.test(newPassword),
+  };
+
+  const isPasswordValid = Object.values(passChecklist).every(Boolean);
 
   useEffect(() => {
     checkAdminSession()
@@ -43,6 +54,10 @@ export default function Login() {
 
   const handleForgotPassword = async (e) => {
     e.preventDefault();
+    if (!isPasswordValid) {
+      setError('Please ensure your new password satisfies all security requirements.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -50,7 +65,8 @@ export default function Login() {
       await forgotPassword(username, resetCode, newPassword);
       setView('LOGIN');
       setPassword('');
-      alert('Password reset successfully. Please login.');
+      setNewPassword('');
+      alert('Password reset successfully. Please login with your new password.');
     } catch (err) {
       setError(err?.message || 'Failed to reset password.');
     }
@@ -59,6 +75,10 @@ export default function Login() {
 
   const handleForceChange = async (e) => {
     e.preventDefault();
+    if (!isPasswordValid) {
+      setError('Please ensure your new password satisfies all security requirements.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -66,113 +86,321 @@ export default function Login() {
       await changePassword(password, newPassword, tempToken);
       setView('LOGIN');
       setPassword('');
-      alert('Password updated. Please login with new password.');
+      setNewPassword('');
+      alert('Password updated successfully. Please login with your new password.');
     } catch (err) {
       setError(err?.message || 'Failed to update password.');
     }
     setLoading(false);
   };
 
+  const renderPasswordChecklist = () => (
+    <div className="password-requirements-box">
+      <div className="req-header">
+        <i className="fa-solid fa-shield-halved" style={{ marginRight: 6, color: '#79213C' }}></i>
+        Password Security Requirements
+      </div>
+      <div className="req-grid">
+        <div className={`req-item ${passChecklist.length ? 'valid' : 'invalid'}`}>
+          <span className="req-icon">
+            {passChecklist.length ? (
+              <i className="fa-solid fa-circle-check" style={{ color: '#22c55e' }}></i>
+            ) : (
+              <i className="fa-solid fa-circle-xmark" style={{ color: '#ef4444' }}></i>
+            )}
+          </span>
+          <span>At least 8 characters</span>
+        </div>
+        <div className={`req-item ${passChecklist.uppercase ? 'valid' : 'invalid'}`}>
+          <span className="req-icon">
+            {passChecklist.uppercase ? (
+              <i className="fa-solid fa-circle-check" style={{ color: '#22c55e' }}></i>
+            ) : (
+              <i className="fa-solid fa-circle-xmark" style={{ color: '#ef4444' }}></i>
+            )}
+          </span>
+          <span>At least 1 uppercase letter (A-Z)</span>
+        </div>
+        <div className={`req-item ${passChecklist.lowercase ? 'valid' : 'invalid'}`}>
+          <span className="req-icon">
+            {passChecklist.lowercase ? (
+              <i className="fa-solid fa-circle-check" style={{ color: '#22c55e' }}></i>
+            ) : (
+              <i className="fa-solid fa-circle-xmark" style={{ color: '#ef4444' }}></i>
+            )}
+          </span>
+          <span>At least 1 lowercase letter (a-z)</span>
+        </div>
+        <div className={`req-item ${passChecklist.number ? 'valid' : 'invalid'}`}>
+          <span className="req-icon">
+            {passChecklist.number ? (
+              <i className="fa-solid fa-circle-check" style={{ color: '#22c55e' }}></i>
+            ) : (
+              <i className="fa-solid fa-circle-xmark" style={{ color: '#ef4444' }}></i>
+            )}
+          </span>
+          <span>At least 1 number (0-9)</span>
+        </div>
+        <div className={`req-item ${passChecklist.special ? 'valid' : 'invalid'}`}>
+          <span className="req-icon">
+            {passChecklist.special ? (
+              <i className="fa-solid fa-circle-check" style={{ color: '#22c55e' }}></i>
+            ) : (
+              <i className="fa-solid fa-circle-xmark" style={{ color: '#ef4444' }}></i>
+            )}
+          </span>
+          <span>At least 1 special char (e.g. £, @, #, $, !, %, &)</span>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="login-page-wrapper">
       <div className="login-glass-card">
         
-        {/* Subtle top progress bar if checking session or logging in */}
+        {/* Top subtle accent bar */}
         {(checking || loading) && (
-          <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0, height: '4px',
-            background: 'rgba(201, 150, 43, 0.1)', overflow: 'hidden', borderRadius: '24px 24px 0 0'
-          }}>
-            <div style={{
-              width: '40%', height: '100%', background: 'var(--magenta)',
-              borderRadius: '24px', animation: 'btn-progress 1s ease-in-out infinite'
-            }} />
+          <div className="login-top-bar-loader">
+            <div className="login-top-bar-progress" />
           </div>
         )}
 
         <div className="login-logo">
-          <img src={logo} style={{ width: 72, marginBottom: 16, filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.3))' }} alt="Logo" />
-          <h1>Swoyambhu C-Panel</h1>
-          <p>Rotaract Club of Swoyambhu</p>
+          <img src={logo} alt="Logo" className="login-logo-img" />
+          <h1>Rotaract Swoyambhu</h1>
+          <p>Admin Control Panel</p>
         </div>
 
         {checking ? (
-          <div style={{ padding: '2rem 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-            <span className="admin-spinner" style={{ width: 32, height: 32, borderWidth: '3px', borderColor: 'rgba(226, 0, 122, 0.15)', borderTopColor: 'var(--magenta)' }} />
-            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem', fontWeight: 500 }}>
-              Checking active session...
-            </p>
+          <div className="login-checking-state">
+            <span className="admin-spinner" />
+            <p>Verifying secure session...</p>
           </div>
         ) : (
           <>
             {error && (
               <div className="login-alert login-alert-error">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0 }}>
-                  <circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>
-                </svg>
+                <i className="fa-solid fa-circle-exclamation" style={{ fontSize: '1rem', flexShrink: 0 }}></i>
                 <span>{error}</span>
               </div>
             )}
 
+            {/* LOGIN VIEW */}
             {view === 'LOGIN' && (
               <form onSubmit={handleLogin}>
                 <div className="login-input-group">
-                  <label htmlFor="username">Username</label>
-                  <input id="username" type="text" name="username" autoComplete="username" placeholder="admin" required maxLength={320} value={username} onChange={e => setUsername(e.target.value)} disabled={loading} className="login-input" />
+                  <label htmlFor="username">
+                    <i className="fa-solid fa-user" style={{ marginRight: 6, fontSize: '0.8rem', color: '#94a3b8' }}></i>
+                    Username
+                  </label>
+                  <input
+                    id="username"
+                    type="text"
+                    name="username"
+                    autoComplete="username"
+                    placeholder="Enter your username"
+                    required
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    disabled={loading}
+                    className="login-input"
+                  />
                 </div>
 
                 <div className="login-input-group">
-                  <label htmlFor="password">Password</label>
-                  <input id="password" type={showPass ? 'text' : 'password'} name="password" autoComplete="current-password" placeholder="••••••••••••" value={password} onChange={e => setPassword(e.target.value)} disabled={loading} className="login-input" />
+                  <label htmlFor="password">
+                    <i className="fa-solid fa-lock" style={{ marginRight: 6, fontSize: '0.8rem', color: '#94a3b8' }}></i>
+                    Password
+                  </label>
+                  <div className="input-pass-wrapper">
+                    <input
+                      id="password"
+                      type={showPass ? 'text' : 'password'}
+                      name="password"
+                      autoComplete="current-password"
+                      placeholder="••••••••••••"
+                      required
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      disabled={loading}
+                      className="login-input"
+                    />
+                    <button
+                      type="button"
+                      className="pass-toggle-btn"
+                      onClick={() => setShowPass(!showPass)}
+                      title={showPass ? 'Hide password' : 'Show password'}
+                    >
+                      {showPass ? (
+                        <i className="fa-solid fa-eye-slash"></i>
+                      ) : (
+                        <i className="fa-solid fa-eye"></i>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', marginBottom: '16px' }}>
-                  <label style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                    <input type="checkbox" id="remember" style={{ accentColor: 'var(--magenta)', cursor: 'pointer' }} /> Remember me
+                <div className="login-options-row">
+                  <label className="remember-me-label">
+                    <input type="checkbox" id="remember" /> Remember me
                   </label>
-                  <button type="button" className="login-link" onClick={() => setView('FORGOT')}>
+                  <button type="button" className="login-link" onClick={() => { setView('FORGOT'); setError(''); }}>
                     Forgot Password?
                   </button>
                 </div>
 
                 <button type="submit" className="login-btn" disabled={loading}>
-                  {loading ? 'Authenticating…' : 'Sign In'}
+                  {loading ? (
+                    <span><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: 8 }}></i>Authenticating…</span>
+                  ) : (
+                    <span><i className="fa-solid fa-right-to-bracket" style={{ marginRight: 8 }}></i>Sign In</span>
+                  )}
                 </button>
               </form>
             )}
 
+            {/* FORGOT PASSWORD VIEW */}
             {view === 'FORGOT' && (
               <form onSubmit={handleForgotPassword}>
-                <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', marginBottom: 20, textAlign: 'center' }}>Enter your username, the 16-character reset code, and your new password.</p>
+                <h3 className="view-title">Reset Admin Password</h3>
+                <p className="view-subtitle">Enter your account username, 16-character reset code, and choose a new secure password.</p>
                 
                 <div className="login-input-group">
-                  <input type="text" placeholder="Username" required value={username} onChange={e => setUsername(e.target.value)} disabled={loading} className="login-input" />
-                </div>
-                <div className="login-input-group">
-                  <input type="text" placeholder="16-Character Reset Code" required value={resetCode} onChange={e => setResetCode(e.target.value)} disabled={loading} className="login-input" />
-                </div>
-                <div className="login-input-group">
-                  <input type={showPass ? 'text' : 'password'} placeholder="New Password (e.g. Pass@123)" required value={newPassword} onChange={e => setNewPassword(e.target.value)} disabled={loading} className="login-input" />
+                  <label>
+                    <i className="fa-solid fa-user" style={{ marginRight: 6, fontSize: '0.8rem', color: '#94a3b8' }}></i>
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Username"
+                    required
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    disabled={loading}
+                    className="login-input"
+                  />
                 </div>
 
-                <button type="submit" className="login-btn" disabled={loading} style={{ marginBottom: 16 }}>
-                  {loading ? 'Resetting…' : 'Reset Password'}
+                <div className="login-input-group">
+                  <label>
+                    <i className="fa-solid fa-key" style={{ marginRight: 6, fontSize: '0.8rem', color: '#94a3b8' }}></i>
+                    16-Character Reset Code
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 4a8b1c9d2e3f5a7b"
+                    required
+                    value={resetCode}
+                    onChange={e => setResetCode(e.target.value)}
+                    disabled={loading}
+                    className="login-input"
+                  />
+                </div>
+
+                <div className="login-input-group">
+                  <label>
+                    <i className="fa-solid fa-lock" style={{ marginRight: 6, fontSize: '0.8rem', color: '#94a3b8' }}></i>
+                    New Password
+                  </label>
+                  <div className="input-pass-wrapper">
+                    <input
+                      type={showPass ? 'text' : 'password'}
+                      placeholder="Create a strong password (e.g. £SafePass2026)"
+                      required
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      disabled={loading}
+                      className="login-input"
+                    />
+                    <button
+                      type="button"
+                      className="pass-toggle-btn"
+                      onClick={() => setShowPass(!showPass)}
+                      title={showPass ? 'Hide password' : 'Show password'}
+                    >
+                      {showPass ? (
+                        <i className="fa-solid fa-eye-slash"></i>
+                      ) : (
+                        <i className="fa-solid fa-eye"></i>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {renderPasswordChecklist()}
+
+                <button
+                  type="submit"
+                  className="login-btn"
+                  disabled={loading || !isPasswordValid}
+                  style={{ opacity: isPasswordValid ? 1 : 0.65, cursor: isPasswordValid ? 'pointer' : 'not-allowed' }}
+                >
+                  {loading ? (
+                    <span><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: 8 }}></i>Resetting…</span>
+                  ) : (
+                    <span><i className="fa-solid fa-key" style={{ marginRight: 8 }}></i>Reset Password</span>
+                  )}
                 </button>
                 
-                <div style={{ textAlign: 'center' }}>
-                  <button type="button" className="login-link" onClick={() => setView('LOGIN')}>Back to Login</button>
+                <div style={{ textAlign: 'center', marginTop: 16 }}>
+                  <button type="button" className="login-link" onClick={() => { setView('LOGIN'); setError(''); }}>
+                    <i className="fa-solid fa-arrow-left" style={{ marginRight: 6 }}></i>
+                    Back to Sign In
+                  </button>
                 </div>
               </form>
             )}
 
+            {/* FORCE CHANGE PASSWORD VIEW (TEMP PASSWORD) */}
             {view === 'FORCE_CHANGE' && (
               <form onSubmit={handleForceChange}>
-                <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', marginBottom: 20, textAlign: 'center' }}>You are using a temporary password. Please set a new permanent password.</p>
+                <h3 className="view-title">Set Permanent Password</h3>
+                <p className="view-subtitle">You signed in with a temporary password. Please set a new secure password to proceed.</p>
+                
                 <div className="login-input-group">
-                  <input type={showPass ? 'text' : 'password'} placeholder="New Password (e.g. Pass@123)" required value={newPassword} onChange={e => setNewPassword(e.target.value)} disabled={loading} className="login-input" />
+                  <label>
+                    <i className="fa-solid fa-shield-halved" style={{ marginRight: 6, fontSize: '0.8rem', color: '#94a3b8' }}></i>
+                    New Permanent Password
+                  </label>
+                  <div className="input-pass-wrapper">
+                    <input
+                      type={showPass ? 'text' : 'password'}
+                      placeholder="Enter new password (e.g. £SafePass2026)"
+                      required
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      disabled={loading}
+                      className="login-input"
+                    />
+                    <button
+                      type="button"
+                      className="pass-toggle-btn"
+                      onClick={() => setShowPass(!showPass)}
+                      title={showPass ? 'Hide password' : 'Show password'}
+                    >
+                      {showPass ? (
+                        <i className="fa-solid fa-eye-slash"></i>
+                      ) : (
+                        <i className="fa-solid fa-eye"></i>
+                      )}
+                    </button>
+                  </div>
                 </div>
-                <button type="submit" className="login-btn" disabled={loading}>
-                  {loading ? 'Updating…' : 'Update Password'}
+
+                {renderPasswordChecklist()}
+
+                <button
+                  type="submit"
+                  className="login-btn"
+                  disabled={loading || !isPasswordValid}
+                  style={{ opacity: isPasswordValid ? 1 : 0.65, cursor: isPasswordValid ? 'pointer' : 'not-allowed' }}
+                >
+                  {loading ? (
+                    <span><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: 8 }}></i>Updating…</span>
+                  ) : (
+                    <span><i className="fa-solid fa-check" style={{ marginRight: 8 }}></i>Save & Continue</span>
+                  )}
                 </button>
               </form>
             )}

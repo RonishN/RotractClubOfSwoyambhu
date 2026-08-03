@@ -357,12 +357,12 @@ export default function AdminEvents() {
 
   return (
     <div className="admin-card">
-      <div className="admin-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div className="admin-page-header-row">
         <div>
           <h2 className="admin-page-title serif">Events Manager</h2>
           <p className="admin-page-subtitle">Add, edit, publish, and manage past and upcoming events done by the club.</p>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div className="admin-header-actions">
           <button className="admin-btn admin-btn-primary" onClick={openCreateModal} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             + Create New Event
           </button>
@@ -707,9 +707,9 @@ export default function AdminEvents() {
         </div>
       )}
 
-      {/* Admin Events List Table */}
+      {/* Admin Events List: Desktop Table vs Mobile Cards */}
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div className="admin-filter-bar">
           <h3 className="admin-card-title" style={{ margin: 0 }}>Managed Events ({events.length})</h3>
           <input
             type="text"
@@ -717,7 +717,7 @@ export default function AdminEvents() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="admin-input"
-            style={{ maxWidth: 260 }}
+            style={{ maxWidth: 280 }}
           />
         </div>
 
@@ -730,84 +730,143 @@ export default function AdminEvents() {
             No events found.
           </div>
         ) : (
-          <div className="admin-table-container">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Event</th>
-                  <th>Date & Time</th>
-                  <th>Photos</th>
-                  <th>Status</th>
-                  <th>Tags</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredEvents.map((ev) => (
-                  <tr key={ev.id}>
-                    <td>
-                      <div style={{ fontWeight: 600, color: '#0f172a' }}>{ev.title}</div>
-                      {ev.attendees && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Attendees: {ev.attendees}</div>}
-                      {ev.collaborators && ev.collaborators.length > 0 && (
-                        <div style={{ fontSize: '0.75rem', color: '#475569' }}>
-                          Collabs: {ev.collaborators.map(c => c.name).join(', ')}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <div style={{ fontSize: '0.85rem' }}>{ev.eventDate}</div>
-                      {ev.eventTime && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{ev.eventTime}</div>}
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span className="admin-badge admin-badge-info">{ev.pictures?.length || 0} Photos</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`admin-badge ${ev.status === 'Draft' ? 'admin-badge-neutral' : 'admin-badge-success'}`}>
-                        {ev.status || 'Published'}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        {ev.tags?.map((t) => (
-                          <span key={t} className="admin-badge admin-badge-neutral">#{t}</span>
-                        ))}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                        {ev.eventDate >= new Date().toISOString().split('T')[0] && ev.status !== 'Draft' && (
-                          <button
-                            type="button"
-                            className={`admin-btn ${ev.notifiedSubscribers ? 'admin-btn-secondary' : 'admin-btn-primary'}`}
-                            onClick={() => handleNotifySubscribers(ev)}
-                            disabled={ev.notifiedSubscribers || notifyingId === ev.id}
-                            style={{
-                              padding: '6px 12px', fontSize: '0.8rem',
-                              display: 'inline-flex', alignItems: 'center', gap: 5,
-                              opacity: ev.notifiedSubscribers ? 0.7 : 1,
-                              cursor: ev.notifiedSubscribers ? 'not-allowed' : 'pointer'
-                            }}
-                          >
-                            <span>{ev.notifiedSubscribers ? '✓ Notified' : notifyingId === ev.id ? 'Sending...' : '🔔 Notify'}</span>
-                          </button>
-                        )}
-                        <button className="admin-btn admin-btn-outline" onClick={() => handleEditClick(ev)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-                          Edit
-                        </button>
-                        <button className="admin-btn admin-btn-danger" onClick={() => handleDelete(ev.id, ev.title)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-                          Delete
-                        </button>
-                      </div>
-                    </td>
+          <>
+            {/* Desktop Table View */}
+            <div className="admin-table-container desktop-only-table">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Event</th>
+                    <th>Date & Time</th>
+                    <th>Photos</th>
+                    <th>Status</th>
+                    <th>Tags</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filteredEvents.map((ev) => (
+                    <tr key={ev.id}>
+                      <td>
+                        <div style={{ fontWeight: 600, color: '#0f172a' }}>{ev.title}</div>
+                        {ev.attendees && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Attendees: {ev.attendees}</div>}
+                        {ev.collaborators && ev.collaborators.length > 0 && (
+                          <div style={{ fontSize: '0.75rem', color: '#475569' }}>
+                            Collabs: {ev.collaborators.map(c => c.name).join(', ')}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ fontSize: '0.85rem' }}>{ev.eventDate}</div>
+                        {ev.eventTime && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{ev.eventTime}</div>}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span className="admin-badge admin-badge-info">{ev.pictures?.length || 0} Photos</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`admin-badge ${ev.status === 'Draft' ? 'admin-badge-neutral' : 'admin-badge-success'}`}>
+                          {ev.status || 'Published'}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                          {ev.tags?.map((t) => (
+                            <span key={t} className="admin-badge admin-badge-neutral">#{t}</span>
+                          ))}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                          {ev.eventDate >= new Date().toISOString().split('T')[0] && ev.status !== 'Draft' && (
+                            <button
+                              type="button"
+                              className={`admin-btn ${ev.notifiedSubscribers ? 'admin-btn-secondary' : 'admin-btn-primary'}`}
+                              onClick={() => handleNotifySubscribers(ev)}
+                              disabled={ev.notifiedSubscribers || notifyingId === ev.id}
+                              style={{
+                                padding: '6px 12px', fontSize: '0.8rem',
+                                display: 'inline-flex', alignItems: 'center', gap: 5,
+                                opacity: ev.notifiedSubscribers ? 0.7 : 1,
+                                cursor: ev.notifiedSubscribers ? 'not-allowed' : 'pointer'
+                              }}
+                            >
+                              <span>{ev.notifiedSubscribers ? '✓ Notified' : notifyingId === ev.id ? 'Sending...' : '🔔 Notify'}</span>
+                            </button>
+                          )}
+                          <button className="admin-btn admin-btn-outline" onClick={() => handleEditClick(ev)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
+                            Edit
+                          </button>
+                          <button className="admin-btn admin-btn-danger" onClick={() => handleDelete(ev.id, ev.title)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Touch Cards View */}
+            <div className="mobile-only-cards">
+              {filteredEvents.map((ev) => (
+                <div key={ev.id} className="mobile-admin-card">
+                  <div className="mobile-card-top">
+                    <div>
+                      <h4 className="mobile-card-title">{ev.title}</h4>
+                      <div className="mobile-card-subtitle">📅 {ev.eventDate} {ev.eventTime ? `| ⏰ ${ev.eventTime}` : ''}</div>
+                    </div>
+                    <span className={`admin-badge ${ev.status === 'Draft' ? 'admin-badge-neutral' : 'admin-badge-success'}`}>
+                      {ev.status || 'Published'}
+                    </span>
+                  </div>
+
+                  {ev.attendees && <div className="mobile-card-meta">👥 {ev.attendees}</div>}
+                  
+                  <div className="mobile-card-tags">
+                    <span className="admin-badge admin-badge-info">📸 {ev.pictures?.length || 0} Photos</span>
+                    {ev.tags?.map((t) => (
+                      <span key={t} className="admin-badge admin-badge-neutral">#{t}</span>
+                    ))}
+                  </div>
+
+                  <div className="mobile-card-actions">
+                    {ev.eventDate >= new Date().toISOString().split('T')[0] && ev.status !== 'Draft' && (
+                      <button
+                        type="button"
+                        className={`admin-btn ${ev.notifiedSubscribers ? 'admin-btn-secondary' : 'admin-btn-primary'}`}
+                        onClick={() => handleNotifySubscribers(ev)}
+                        disabled={ev.notifiedSubscribers || notifyingId === ev.id}
+                        style={{ padding: '8px 12px', fontSize: '0.82rem' }}
+                      >
+                        {ev.notifiedSubscribers ? '✓ Notified' : notifyingId === ev.id ? 'Sending...' : '🔔 Notify'}
+                      </button>
+                    )}
+                    <button className="admin-btn admin-btn-outline" onClick={() => handleEditClick(ev)} style={{ padding: '8px 14px', fontSize: '0.82rem' }}>
+                      ✏️ Edit
+                    </button>
+                    <button className="admin-btn admin-btn-danger" onClick={() => handleDelete(ev.id, ev.title)} style={{ padding: '8px 14px', fontSize: '0.82rem' }}>
+                      🗑️ Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
+
+      {/* Floating Action Button (FAB) on Mobile */}
+      <button 
+        className="admin-mobile-fab"
+        onClick={openCreateModal}
+        title="Create New Event"
+        aria-label="Create Event"
+      >
+        +
+      </button>
     </div>
   );
 }

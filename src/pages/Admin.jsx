@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { checkAdminSession, logoutAdmin } from '../api/client';
+import MobileBottomNav from '../components/MobileBottomNav';
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -35,14 +36,50 @@ export default function Admin() {
   };
 
   if (loading) {
-    return null; // GlobalLoading overlay handles the loading state
+    return null;
   }
 
   const isActive = (path) => location.pathname.includes(path) ? 'active' : '';
 
   return (
     <div className="admin-layout-wrapper">
-      <div className="admin-sidebar">
+      {/* Mobile Top Header */}
+      <div className="admin-mobile-top-bar">
+        <div style={{ fontWeight: 800, color: 'var(--navy)', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span>🛡️</span> Admin Portal
+        </div>
+        <button className="admin-btn admin-btn-danger" onClick={logout} style={{ padding: '6px 12px', fontSize: '0.78rem' }}>
+          Logout
+        </button>
+      </div>
+
+      {/* Mobile Nav Pills Header */}
+      <div className="admin-mobile-sub-nav">
+        <button className={`admin-mobile-pill ${location.pathname === '/admin/edit' ? 'active' : ''}`} onClick={() => navigate('/admin/edit')}>
+          ✏️ Visual Editor
+        </button>
+        {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('EVENT_MANAGER')) && (
+          <button className={`admin-mobile-pill ${isActive('/admin/events')}`} onClick={() => navigate('/admin/events')}>
+            📅 Events
+          </button>
+        )}
+        {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('VIEW_LOGS')) && (
+          <button className={`admin-mobile-pill ${isActive('/admin/logs')}`} onClick={() => navigate('/admin/logs')}>
+            📋 Logs
+          </button>
+        )}
+        {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('ADMIN_CREATOR') || currentUser?.permissions?.includes('ACCOUNT_PASSWORD_RESET') || currentUser?.permissions?.includes('DEACTIVATE_ACCOUNT') || currentUser?.permissions?.includes('DELETE_ACCOUNT')) && (
+          <button className={`admin-mobile-pill ${isActive('/admin/manage')}`} onClick={() => navigate('/admin/manage')}>
+            👥 Admins
+          </button>
+        )}
+        <button className={`admin-mobile-pill ${isActive('/admin/settings')}`} onClick={() => navigate('/admin/settings')}>
+          ⚙️ Settings
+        </button>
+      </div>
+
+      {/* Desktop Sidebar */}
+      <div className="admin-sidebar desktop-only">
         <div>
           <div className="admin-sidebar-header">
             <h2 className="serif">Swoyambhu Admin</h2>
@@ -90,9 +127,11 @@ export default function Admin() {
         </div>
       </div>
 
-      <div className="admin-main-content">
+      <div className="admin-main-content" style={{ paddingBottom: '90px' }}>
         <Outlet context={{ currentUser }} />
       </div>
+
+      <MobileBottomNav />
     </div>
   );
 }
