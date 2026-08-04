@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { getAdminEvents, createEvent, updateEvent, deleteEvent, uploadImage, notifyEventSubscribers, resetEventNotifiedStates } from '../api/client';
+import { getAdminEvents, createEvent, updateEvent, deleteEvent, uploadImage, notifyEventSubscribers, resetEventNotifiedStates, setPriorityEvent } from '../api/client';
 import EventCarousel from '../components/EventCarousel';
 import ImageCropModal from '../components/ImageCropModal';
 
@@ -11,6 +11,7 @@ export default function AdminEvents() {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [notifyingId, setNotifyingId] = useState(null);
+  const [settingPriorityId, setSettingPriorityId] = useState(null);
 
   // Form & Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -319,6 +320,21 @@ export default function AdminEvents() {
     }
   };
 
+  const handleSetPriority = async (ev) => {
+    setSettingPriorityId(ev.id);
+    setError('');
+    setSuccessMsg('');
+    try {
+      const res = await setPriorityEvent(ev.id);
+      setSuccessMsg(res.message || 'Priority updated!');
+      fetchEvents();
+    } catch (err) {
+      setError(err.message || 'Failed to update priority.');
+    } finally {
+      setSettingPriorityId(null);
+    }
+  };
+
   const handleResetNotified = async () => {
     if (!window.confirm('Are you sure you want to reset notification state for ALL events? This will make the Notify button active again for all upcoming events.')) return;
     setError('');
@@ -508,8 +524,9 @@ export default function AdminEvents() {
                       onChange={(e) => setRegistrationClosed(e.target.checked)}
                       style={{ width: 18, height: 18, accentColor: '#ef4444' }}
                     />
-                    <span style={{ fontSize: '0.88rem', fontWeight: 600, color: registrationClosed ? '#991b1b' : '#166534' }}>
-                      {registrationClosed ? '⛔ Registration Closed (Disabled)' : '✅ Registration Open'}
+                    <span style={{ fontSize: '0.88rem', fontWeight: 600, color: registrationClosed ? '#991b1b' : '#166534', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <i className={`fa-solid ${registrationClosed ? 'fa-ban' : 'fa-circle-check'}`} />
+                      {registrationClosed ? 'Registration Closed (Disabled)' : 'Registration Open'}
                     </span>
                   </label>
                 </div>
@@ -736,8 +753,9 @@ export default function AdminEvents() {
               <table className="admin-table">
                 <thead>
                   <tr>
+                    <th style={{ width: 48, textAlign: 'center' }}>⭐</th>
                     <th>Event</th>
-                    <th>Date & Time</th>
+                    <th>Date &amp; Time</th>
                     <th>Photos</th>
                     <th>Status</th>
                     <th>Tags</th>
@@ -746,8 +764,17 @@ export default function AdminEvents() {
                 </thead>
                 <tbody>
                   {filteredEvents.map((ev) => (
-                    <tr key={ev.id}>
+                    <tr key={ev.id} style={{ background: ev.isPriority ? 'linear-gradient(90deg,rgba(251,191,36,0.09),transparent)' : undefined, outline: ev.isPriority ? '2px solid rgba(245,158,11,0.3)' : undefined }}>
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          title={ev.isPriority ? 'Remove priority' : 'Set as priority (shown to first-time visitors)'}
+                          onClick={() => handleSetPriority(ev)}
+                          disabled={settingPriorityId === ev.id}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.3rem', lineHeight: 1, filter: ev.isPriority ? 'drop-shadow(0 0 5px rgba(245,158,11,0.9))' : 'grayscale(1) opacity(0.4)', transition: 'filter 0.2s, transform 0.2s', transform: settingPriorityId === ev.id ? 'scale(0.85)' : 'scale(1)' }}
+                        >{ev.isPriority ? '⭐' : '⭐'}</button>
+                      </td>
                       <td>
+                        {ev.isPriority && <div style={{ fontSize: '0.7rem', background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff', display: 'inline-block', padding: '2px 8px', borderRadius: 10, fontWeight: 700, marginBottom: 4, letterSpacing: '0.3px' }}>PRIORITY EVENT</div>}
                         <div style={{ fontWeight: 600, color: '#0f172a' }}>{ev.title}</div>
                         {ev.attendees && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Attendees: {ev.attendees}</div>}
                         {ev.collaborators && ev.collaborators.length > 0 && (
@@ -792,7 +819,10 @@ export default function AdminEvents() {
                                 cursor: ev.notifiedSubscribers ? 'not-allowed' : 'pointer'
                               }}
                             >
-                              <span>{ev.notifiedSubscribers ? '✓ Notified' : notifyingId === ev.id ? 'Sending...' : '🔔 Notify'}</span>
+                              <span>
+                                <i className={`fa-solid ${ev.notifiedSubscribers ? 'fa-check' : notifyingId === ev.id ? 'fa-spinner fa-spin' : 'fa-bell'}`} style={{ marginRight: 4 }} />
+                                {ev.notifiedSubscribers ? 'Notified' : notifyingId === ev.id ? 'Sending...' : 'Notify'}
+                              </span>
                             </button>
                           )}
                           <button className="admin-btn admin-btn-outline" onClick={() => handleEditClick(ev)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
@@ -812,27 +842,54 @@ export default function AdminEvents() {
             {/* Mobile Touch Cards View */}
             <div className="mobile-only-cards">
               {filteredEvents.map((ev) => (
-                <div key={ev.id} className="mobile-admin-card">
+                <div key={ev.id} className="mobile-admin-card" style={{ borderLeft: ev.isPriority ? '4px solid #79213C' : undefined, background: ev.isPriority ? '#fdf2f4' : undefined }}>
                   <div className="mobile-card-top">
-                    <div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {ev.isPriority && (
+                        <div style={{ fontSize: '0.7rem', background: 'var(--magenta)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 6, fontWeight: 700, marginBottom: 4 }}>
+                          <i className="fa-solid fa-star" /> PRIORITY
+                        </div>
+                      )}
                       <h4 className="mobile-card-title">{ev.title}</h4>
-                      <div className="mobile-card-subtitle">📅 {ev.eventDate} {ev.eventTime ? `| ⏰ ${ev.eventTime}` : ''}</div>
+                      <div className="mobile-card-subtitle">
+                        <i className="fa-regular fa-calendar" style={{ marginRight: 4, color: 'var(--magenta)' }} />
+                        {ev.eventDate} {ev.eventTime ? `| ` : ''}
+                        {ev.eventTime && <><i className="fa-regular fa-clock" style={{ marginLeft: 4, marginRight: 4, color: '#94a3b8' }} />{ev.eventTime}</>}
+                      </div>
                     </div>
                     <span className={`admin-badge ${ev.status === 'Draft' ? 'admin-badge-neutral' : 'admin-badge-success'}`}>
                       {ev.status || 'Published'}
                     </span>
                   </div>
 
-                  {ev.attendees && <div className="mobile-card-meta">👥 {ev.attendees}</div>}
+                  {ev.attendees && (
+                    <div className="mobile-card-meta">
+                      <i className="fa-solid fa-users" style={{ marginRight: 4, color: 'var(--magenta)' }} />
+                      {ev.attendees}
+                    </div>
+                  )}
                   
                   <div className="mobile-card-tags">
-                    <span className="admin-badge admin-badge-info">📸 {ev.pictures?.length || 0} Photos</span>
+                    <span className="admin-badge admin-badge-info">
+                      <i className="fa-solid fa-camera" style={{ marginRight: 4 }} />
+                      {ev.pictures?.length || 0} Photos
+                    </span>
                     {ev.tags?.map((t) => (
                       <span key={t} className="admin-badge admin-badge-neutral">#{t}</span>
                     ))}
                   </div>
 
                   <div className="mobile-card-actions">
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn-outline"
+                      onClick={() => handleSetPriority(ev)}
+                      disabled={settingPriorityId === ev.id}
+                      style={{ padding: '8px 12px', fontSize: '0.82rem', borderColor: ev.isPriority ? 'var(--magenta)' : undefined, color: ev.isPriority ? 'var(--magenta)' : undefined, fontWeight: ev.isPriority ? 700 : undefined }}
+                    >
+                      <i className={`fa-${ev.isPriority ? 'solid' : 'regular'} fa-star`} style={{ marginRight: 4 }} />
+                      {settingPriorityId === ev.id ? '...' : ev.isPriority ? 'Remove Priority' : 'Set Priority'}
+                    </button>
                     {ev.eventDate >= new Date().toISOString().split('T')[0] && ev.status !== 'Draft' && (
                       <button
                         type="button"
@@ -841,14 +898,15 @@ export default function AdminEvents() {
                         disabled={ev.notifiedSubscribers || notifyingId === ev.id}
                         style={{ padding: '8px 12px', fontSize: '0.82rem' }}
                       >
-                        {ev.notifiedSubscribers ? '✓ Notified' : notifyingId === ev.id ? 'Sending...' : '🔔 Notify'}
+                        <i className={`fa-solid ${ev.notifiedSubscribers ? 'fa-check' : notifyingId === ev.id ? 'fa-spinner fa-spin' : 'fa-bell'}`} style={{ marginRight: 4 }} />
+                        {ev.notifiedSubscribers ? 'Notified' : notifyingId === ev.id ? 'Sending...' : 'Notify'}
                       </button>
                     )}
                     <button className="admin-btn admin-btn-outline" onClick={() => handleEditClick(ev)} style={{ padding: '8px 14px', fontSize: '0.82rem' }}>
-                      ✏️ Edit
+                      <i className="fa-solid fa-pen" style={{ marginRight: 4 }} /> Edit
                     </button>
                     <button className="admin-btn admin-btn-danger" onClick={() => handleDelete(ev.id, ev.title)} style={{ padding: '8px 14px', fontSize: '0.82rem' }}>
-                      🗑️ Delete
+                      <i className="fa-solid fa-trash" style={{ marginRight: 4 }} /> Delete
                     </button>
                   </div>
                 </div>

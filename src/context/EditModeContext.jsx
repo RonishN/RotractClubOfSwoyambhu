@@ -43,14 +43,14 @@ export function EditModeProvider({ children, initialContent = {} }) {
       .catch(() => setIsAdmin(false));
   }, []);
 
-  const showToast = useCallback((type, message, autoDismiss = true) => {
+  const showToast = useCallback((type, message, autoDismiss = true, errorData = null) => {
     // Clear any pending auto-dismiss timer
     if (toastTimerRef.current) {
       clearTimeout(toastTimerRef.current);
       toastTimerRef.current = null;
     }
 
-    setToast({ type, message });
+    setToast({ type, message, errorData });
 
     // Auto-dismiss success toasts after 4 seconds
     if (type === 'success' && autoDismiss) {
@@ -120,7 +120,7 @@ export function EditModeProvider({ children, initialContent = {} }) {
         }, 2500);
         return;
       }
-      showToast('error', err?.message || 'Failed to save changes', false);
+      showToast('error', err?.message || 'Failed to save changes', false, err);
     } finally {
       setSaving(false);
     }
@@ -141,11 +141,11 @@ export function EditModeProvider({ children, initialContent = {} }) {
       setIsEditMode(false);
     } catch (err) {
       if (err?.status === 401) {
-        showToast('error', 'Your session has expired. Please log in again.', false);
+        showToast('error', 'Your session has expired. Please log in again.', false, err);
         setTimeout(() => { window.location.href = '/login'; }, 2500);
         return;
       }
-      showToast('error', err?.message || 'Failed to restore defaults', false);
+      showToast('error', err?.message || 'Failed to restore defaults', false, err);
     } finally {
       setSaving(false);
     }

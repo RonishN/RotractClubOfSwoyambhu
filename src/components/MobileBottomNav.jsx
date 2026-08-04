@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLang } from '../context/LanguageContext';
+import ReportBugModal from './ReportBugModal';
 
 export default function MobileBottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const { lang, toggleLang } = useLang();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showBugModal, setShowBugModal] = useState(false);
 
   const isActive = (path) => location.pathname === path;
 
@@ -69,6 +71,9 @@ export default function MobileBottomNav() {
           </button>
           <button onClick={() => handleNav('/admin')}>
             <span className="menu-icon"><i className="fa-solid fa-gear" style={{ color: '#79213C' }}></i></span> {lang === 'en' ? 'Admin Portal' : 'एडमिन पोर्टल'}
+          </button>
+          <button onClick={() => { setDrawerOpen(false); setShowBugModal(true); }}>
+            <span className="menu-icon"><i className="fa-solid fa-bug" style={{ color: '#79213C' }}></i></span> {lang === 'en' ? 'Report an Issue / Bug' : 'समस्या दर्ता'}
           </button>
         </div>
       </div>
@@ -133,6 +138,12 @@ export default function MobileBottomNav() {
           <span className="tab-label">{lang === 'en' ? 'More' : 'थप'}</span>
         </button>
       </nav>
+
+      {/* Report Bug Modal */}
+      <ReportBugModal
+        isOpen={showBugModal}
+        onClose={() => setShowBugModal(false)}
+      />
     </>
   );
 }

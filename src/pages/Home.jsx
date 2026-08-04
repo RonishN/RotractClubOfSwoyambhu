@@ -9,11 +9,13 @@ import EventsSection from '../components/EventsSection';
 import ContactSection from '../components/ContactSection';
 import SandyDivider from '../components/SandyDivider';
 import Footer from '../components/Footer';
-import { getPublicContent } from '../api/client';
+import FeaturedEventModal from '../components/FeaturedEventModal';
+import { getPublicContent, getPublicEvents } from '../api/client';
 
 export default function Home() {
   const [content, setContent]   = useState({});
   const [isLoading, setIsLoading] = useState(true);
+  const [featuredEvent, setFeaturedEvent] = useState(null);
 
   useEffect(() => {
     getPublicContent()
@@ -26,12 +28,22 @@ export default function Home() {
       .finally(() => {
         setIsLoading(false);
       });
+
+    // Load public events to find featured one
+    getPublicEvents()
+      .then((events) => {
+        const featured = Array.isArray(events)
+          ? events.find(ev => ev.isPriority && ev.status !== 'Draft') || null
+          : null;
+        setFeaturedEvent(featured);
+      })
+      .catch(() => setFeaturedEvent(null));
   }, []);
 
   return (
     <>
       <Header />
-      <main style={{ paddingBottom: '70px' }}>
+      <main>
         <HeroSection  content={content || {}} isLoading={isLoading} />
         <AboutSection content={content || {}} isLoading={isLoading} />
         <TeamSection  content={content || {}} isLoading={isLoading} />
@@ -41,6 +53,7 @@ export default function Home() {
       </main>
       <Footer />
       <MobileBottomNav />
+      <FeaturedEventModal event={featuredEvent} />
     </>
   );
 }

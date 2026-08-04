@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { getUsers, createUser, sendAdminCredentials, toggleUserStatus, deleteUser, generateResetCode, updateUserPermissions } from '../api/client';
+import { getUsers, createUser, sendAdminCredentials, toggleUserStatus, deleteUser, cancelUserDeletion, generateResetCode, updateUserPermissions } from '../api/client';
 
 const ALL_AVAILABLE_PERMISSIONS = [
   'VISUAL_EDITOR',
   'ACCOUNT_PASSWORD_RESET',
   'VIEW_LOGS',
+  'VIEW_ERROR_LOGS',
   'DEACTIVATE_ACCOUNT',
   'DELETE_ACCOUNT',
   'ADMIN_CREATOR',
@@ -26,6 +27,7 @@ export default function ManageAdmins() {
     VISUAL_EDITOR: false,
     ACCOUNT_PASSWORD_RESET: false,
     VIEW_LOGS: false,
+    VIEW_ERROR_LOGS: false,
     DEACTIVATE_ACCOUNT: false,
     DELETE_ACCOUNT: false,
     ADMIN_CREATOR: false,
@@ -171,12 +173,21 @@ export default function ManageAdmins() {
   };
 
   const handleDelete = async (username) => {
-    if (!window.confirm(`Are you sure you want to delete admin ${username}? This cannot be undone.`)) return;
+    if (!window.confirm(`Are you sure you want to schedule admin "${username}" for deletion? The account will be deactivated and logged out immediately, and permanently deleted after 24 hours unless cancelled.`)) return;
     try {
       await deleteUser(username);
       fetchUsers();
     } catch (err) {
-      alert('Failed to delete admin');
+      alert(err.message || 'Failed to schedule admin deletion');
+    }
+  };
+
+  const handleCancelDeletion = async (username) => {
+    try {
+      await cancelUserDeletion(username);
+      fetchUsers();
+    } catch (err) {
+      alert(err.message || 'Failed to cancel deletion');
     }
   };
 
@@ -271,6 +282,7 @@ export default function ManageAdmins() {
                     {(hasPerm('ADMIN_CREATOR') || canEditPermissions) && <label className="admin-checkbox-label"><input type="checkbox" checked={permissions.ADMIN_CREATOR} onChange={e => setPermissions({...permissions, ADMIN_CREATOR: e.target.checked})} /> ADMIN_CREATOR</label>}
                     {(hasPerm('ACCOUNT_PASSWORD_RESET') || canEditPermissions) && <label className="admin-checkbox-label"><input type="checkbox" checked={permissions.ACCOUNT_PASSWORD_RESET} onChange={e => setPermissions({...permissions, ACCOUNT_PASSWORD_RESET: e.target.checked})} /> ACCOUNT_PASSWORD_RESET</label>}
                     {(hasPerm('VIEW_LOGS') || canEditPermissions) && <label className="admin-checkbox-label"><input type="checkbox" checked={permissions.VIEW_LOGS} onChange={e => setPermissions({...permissions, VIEW_LOGS: e.target.checked})} /> VIEW_LOGS</label>}
+                    {(hasPerm('VIEW_ERROR_LOGS') || canEditPermissions) && <label className="admin-checkbox-label"><input type="checkbox" checked={permissions.VIEW_ERROR_LOGS} onChange={e => setPermissions({...permissions, VIEW_ERROR_LOGS: e.target.checked})} /> VIEW_ERROR_LOGS</label>}
                     {(hasPerm('DEACTIVATE_ACCOUNT') || canEditPermissions) && <label className="admin-checkbox-label"><input type="checkbox" checked={permissions.DEACTIVATE_ACCOUNT} onChange={e => setPermissions({...permissions, DEACTIVATE_ACCOUNT: e.target.checked})} /> DEACTIVATE_ACCOUNT</label>}
                     {(hasPerm('DELETE_ACCOUNT') || canEditPermissions) && <label className="admin-checkbox-label"><input type="checkbox" checked={permissions.DELETE_ACCOUNT} onChange={e => setPermissions({...permissions, DELETE_ACCOUNT: e.target.checked})} /> DELETE_ACCOUNT</label>}
                   </div>
@@ -361,9 +373,20 @@ export default function ManageAdmins() {
                         </span>
                       </td>
                       <td>
-                        <span className={`admin-badge ${u.is_active ? 'admin-badge-success' : 'admin-badge-danger'}`}>
-                          {u.is_active ? 'Active' : 'Inactive'}
-                        </span>
+                        {u.scheduled_for_deletion_at ? (
+                          <div>
+                            <span className="admin-badge admin-badge-danger" style={{ background: '#fff7ed', color: '#c2410c', borderColor: '#ffedd5' }}>
+                              Deletion Pending
+                            </span>
+                            <div style={{ fontSize: '0.72rem', color: '#ea580c', marginTop: 4 }}>
+                              Scheduled: {new Date(u.scheduled_for_deletion_at).toLocaleString()}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className={`admin-badge ${u.is_active ? 'admin-badge-success' : 'admin-badge-danger'}`}>
+                            {u.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        )}
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -378,21 +401,27 @@ export default function ManageAdmins() {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          {canEditPermissions && u.role !== 'SUPERADMIN' && (
+                          {canEditPermissions && u.role !== 'SUPERADMIN' && !u.scheduled_for_deletion_at && (
                             <button className="admin-btn admin-btn-primary" onClick={() => openEditPermissionsModal(u)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
                               Edit Perms
                             </button>
                           )}
-                          {canDeactivate && u.username !== currentUser.username && u.role !== 'SUPERADMIN' && (
+                          {canDeactivate && u.username !== currentUser.username && u.role !== 'SUPERADMIN' && !u.scheduled_for_deletion_at && (
                             <button className="admin-btn admin-btn-outline" onClick={() => handleToggle(u.username, u.is_active)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
                               {u.is_active ? 'Deactivate' : 'Activate'}
                             </button>
                           )}
-                          {canReset && u.username !== currentUser.username && (
+                          {canReset && u.username !== currentUser.username && !u.scheduled_for_deletion_at && (
                             <button className="admin-btn admin-btn-outline" onClick={() => handleGenerateCode(u.username)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>Reset Code</button>
                           )}
                           {canDelete && u.username !== currentUser.username && u.role !== 'SUPERADMIN' && (
-                            <button className="admin-btn admin-btn-danger" onClick={() => handleDelete(u.username)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>Delete</button>
+                            u.scheduled_for_deletion_at ? (
+                              <button className="admin-btn admin-btn-outline" onClick={() => handleCancelDeletion(u.username)} style={{ padding: '6px 12px', fontSize: '0.8rem', borderColor: '#f97316', color: '#c2410c' }}>
+                                Cancel Deletion
+                              </button>
+                            ) : (
+                              <button className="admin-btn admin-btn-danger" onClick={() => handleDelete(u.username)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>Schedule Delete</button>
+                            )
                           )}
                         </div>
                       </td>
@@ -411,10 +440,22 @@ export default function ManageAdmins() {
                       <h4 className="mobile-card-title">{u.username}</h4>
                       <div className="mobile-card-subtitle">Role: {u.role}</div>
                     </div>
-                    <span className={`admin-badge ${u.is_active ? 'admin-badge-success' : 'admin-badge-danger'}`}>
-                      {u.is_active ? 'Active' : 'Inactive'}
-                    </span>
+                    {u.scheduled_for_deletion_at ? (
+                      <span className="admin-badge admin-badge-danger" style={{ background: '#fff7ed', color: '#c2410c', borderColor: '#ffedd5' }}>
+                        Deletion Pending
+                      </span>
+                    ) : (
+                      <span className={`admin-badge ${u.is_active ? 'admin-badge-success' : 'admin-badge-danger'}`}>
+                        {u.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    )}
                   </div>
+
+                  {u.scheduled_for_deletion_at && (
+                    <div style={{ fontSize: '0.75rem', color: '#ea580c', margin: '4px 0 8px 0' }}>
+                      <i className="fa-solid fa-clock" style={{ marginRight: 4 }} /> Scheduled to delete: {new Date(u.scheduled_for_deletion_at).toLocaleString()}
+                    </div>
+                  )}
 
                   <div className="mobile-card-tags">
                     {u.role === 'SUPERADMIN' ? (
@@ -427,12 +468,12 @@ export default function ManageAdmins() {
                   </div>
 
                   <div className="mobile-card-actions">
-                    {canEditPermissions && u.role !== 'SUPERADMIN' && (
+                    {canEditPermissions && u.role !== 'SUPERADMIN' && !u.scheduled_for_deletion_at && (
                       <button className="admin-btn admin-btn-primary" onClick={() => openEditPermissionsModal(u)} style={{ padding: '8px 12px', fontSize: '0.82rem' }}>
                         <i className="fa-solid fa-pen" style={{ marginRight: 4 }}></i> Perms
                       </button>
                     )}
-                    {canDeactivate && u.username !== currentUser.username && u.role !== 'SUPERADMIN' && (
+                    {canDeactivate && u.username !== currentUser.username && u.role !== 'SUPERADMIN' && !u.scheduled_for_deletion_at && (
                       <button className="admin-btn admin-btn-outline" onClick={() => handleToggle(u.username, u.is_active)} style={{ padding: '8px 12px', fontSize: '0.82rem' }}>
                         {u.is_active ? (
                           <>
@@ -445,15 +486,21 @@ export default function ManageAdmins() {
                         )}
                       </button>
                     )}
-                    {canReset && u.username !== currentUser.username && (
+                    {canReset && u.username !== currentUser.username && !u.scheduled_for_deletion_at && (
                       <button className="admin-btn admin-btn-outline" onClick={() => handleGenerateCode(u.username)} style={{ padding: '8px 12px', fontSize: '0.82rem' }}>
                         <i className="fa-solid fa-key" style={{ marginRight: 4 }}></i> Reset
                       </button>
                     )}
                     {canDelete && u.username !== currentUser.username && u.role !== 'SUPERADMIN' && (
-                      <button className="admin-btn admin-btn-danger" onClick={() => handleDelete(u.username)} style={{ padding: '8px 12px', fontSize: '0.82rem' }}>
-                        <i className="fa-solid fa-trash-can" style={{ marginRight: 4 }}></i> Delete
-                      </button>
+                      u.scheduled_for_deletion_at ? (
+                        <button className="admin-btn admin-btn-outline" onClick={() => handleCancelDeletion(u.username)} style={{ padding: '8px 12px', fontSize: '0.82rem', borderColor: '#f97316', color: '#c2410c' }}>
+                          <i className="fa-solid fa-rotate-left" style={{ marginRight: 4 }}></i> Cancel Deletion
+                        </button>
+                      ) : (
+                        <button className="admin-btn admin-btn-danger" onClick={() => handleDelete(u.username)} style={{ padding: '8px 12px', fontSize: '0.82rem' }}>
+                          <i className="fa-solid fa-trash-can" style={{ marginRight: 4 }}></i> Delete
+                        </button>
+                      )
                     )}
                   </div>
                 </div>
@@ -514,6 +561,7 @@ export default function ManageAdmins() {
                       {perm === 'VISUAL_EDITOR' && 'Can edit site visual content and text'}
                       {perm === 'ACCOUNT_PASSWORD_RESET' && 'Can generate password reset codes'}
                       {perm === 'VIEW_LOGS' && 'Can view audit logs'}
+                      {perm === 'VIEW_ERROR_LOGS' && 'Can view system error logs, bug reports, and stack traces'}
                       {perm === 'DEACTIVATE_ACCOUNT' && 'Can activate/deactivate admin accounts'}
                       {perm === 'DELETE_ACCOUNT' && 'Can delete admin accounts'}
                     </div>

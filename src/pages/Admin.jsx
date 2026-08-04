@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { checkAdminSession, logoutAdmin } from '../api/client';
 import MobileBottomNav from '../components/MobileBottomNav';
+import ReportBugModal from '../components/ReportBugModal';
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -9,6 +10,7 @@ export default function Admin() {
 
   const [loading, setLoading]         = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
+  const [showBugModal, setShowBugModal] = useState(false);
 
   const loadAdminData = useCallback(async () => {
     try {
@@ -46,35 +48,58 @@ export default function Admin() {
       {/* Mobile Top Header */}
       <div className="admin-mobile-top-bar">
         <div style={{ fontWeight: 800, color: 'var(--navy)', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span>🛡️</span> Admin Portal
+          <i className="fa-solid fa-shield-halved" style={{ color: '#79213C' }} /> Admin Portal
         </div>
-        <button className="admin-btn admin-btn-danger" onClick={logout} style={{ padding: '6px 12px', fontSize: '0.78rem' }}>
-          Logout
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button 
+            className="admin-btn" 
+            onClick={() => setShowBugModal(true)} 
+            style={{ padding: '6px 10px', fontSize: '0.78rem', background: 'rgba(121,33,60,0.08)', color: '#79213C', border: '1px solid rgba(121,33,60,0.2)' }}
+            title="Report Bug"
+          >
+            <i className="fa-solid fa-bug" />
+          </button>
+          <button className="admin-btn admin-btn-danger" onClick={logout} style={{ padding: '6px 12px', fontSize: '0.78rem' }}>
+            <i className="fa-solid fa-right-from-bracket" style={{ marginRight: 4 }} />
+            Logout
+          </button>
+        </div>
       </div>
 
       {/* Mobile Nav Pills Header */}
       <div className="admin-mobile-sub-nav">
         <button className={`admin-mobile-pill ${location.pathname === '/admin/edit' ? 'active' : ''}`} onClick={() => navigate('/admin/edit')}>
-          ✏️ Visual Editor
+          <i className="fa-solid fa-pen-to-square" style={{ marginRight: 6 }} /> Visual Editor
         </button>
         {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('EVENT_MANAGER')) && (
           <button className={`admin-mobile-pill ${isActive('/admin/events')}`} onClick={() => navigate('/admin/events')}>
-            📅 Events
+            <i className="fa-solid fa-calendar-days" style={{ marginRight: 6 }} /> Events
           </button>
         )}
         {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('VIEW_LOGS')) && (
           <button className={`admin-mobile-pill ${isActive('/admin/logs')}`} onClick={() => navigate('/admin/logs')}>
-            📋 Logs
+            <i className="fa-solid fa-list-check" style={{ marginRight: 6 }} /> Audit Logs
+          </button>
+        )}
+        {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('VIEW_ERROR_LOGS')) && (
+          <button className={`admin-mobile-pill ${isActive('/admin/error-logs')}`} onClick={() => navigate('/admin/error-logs')}>
+            <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: 6 }} /> Error Logs
           </button>
         )}
         {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('ADMIN_CREATOR') || currentUser?.permissions?.includes('ACCOUNT_PASSWORD_RESET') || currentUser?.permissions?.includes('DEACTIVATE_ACCOUNT') || currentUser?.permissions?.includes('DELETE_ACCOUNT')) && (
           <button className={`admin-mobile-pill ${isActive('/admin/manage')}`} onClick={() => navigate('/admin/manage')}>
-            👥 Admins
+            <i className="fa-solid fa-users-gear" style={{ marginRight: 6 }} /> Admins
           </button>
         )}
         <button className={`admin-mobile-pill ${isActive('/admin/settings')}`} onClick={() => navigate('/admin/settings')}>
-          ⚙️ Settings
+          <i className="fa-solid fa-gear" style={{ marginRight: 6 }} /> Settings
+        </button>
+        <button 
+          className="admin-mobile-pill" 
+          onClick={() => setShowBugModal(true)}
+          style={{ background: 'rgba(121,33,60,0.06)', color: '#79213C', borderColor: 'rgba(121,33,60,0.2)' }}
+        >
+          <i className="fa-solid fa-bug" style={{ marginRight: 6 }} /> Report Bug
         </button>
       </div>
 
@@ -87,41 +112,56 @@ export default function Admin() {
           
           <div className="admin-nav">
             <button className="admin-nav-item" onClick={() => navigate('/admin/edit')}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+              <i className="fa-solid fa-pen-to-square" style={{ fontSize: '15px', width: '20px', textAlign: 'center' }} />
               <span>Visual Editor</span>
             </button>
 
             {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('EVENT_MANAGER')) && (
               <button className={`admin-nav-item ${isActive('/admin/events')}`} onClick={() => navigate('/admin/events')}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                <i className="fa-solid fa-calendar-days" style={{ fontSize: '15px', width: '20px', textAlign: 'center' }} />
                 <span>Events Manager</span>
               </button>
             )}
 
             {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('VIEW_LOGS')) && (
               <button className={`admin-nav-item ${isActive('/admin/logs')}`} onClick={() => navigate('/admin/logs')}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                <i className="fa-solid fa-list-check" style={{ fontSize: '15px', width: '20px', textAlign: 'center' }} />
                 <span>Audit Logs</span>
+              </button>
+            )}
+
+            {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('VIEW_ERROR_LOGS')) && (
+              <button className={`admin-nav-item ${isActive('/admin/error-logs')}`} onClick={() => navigate('/admin/error-logs')}>
+                <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: '15px', width: '20px', textAlign: 'center' }} />
+                <span>Error Logs</span>
               </button>
             )}
 
             {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('ADMIN_CREATOR') || currentUser?.permissions?.includes('ACCOUNT_PASSWORD_RESET') || currentUser?.permissions?.includes('DEACTIVATE_ACCOUNT') || currentUser?.permissions?.includes('DELETE_ACCOUNT')) && (
               <button className={`admin-nav-item ${isActive('/admin/manage')}`} onClick={() => navigate('/admin/manage')}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                <i className="fa-solid fa-users-gear" style={{ fontSize: '15px', width: '20px', textAlign: 'center' }} />
                 <span>Manage Admins</span>
               </button>
             )}
 
             <button className={`admin-nav-item ${isActive('/admin/settings')}`} onClick={() => navigate('/admin/settings')}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              <i className="fa-solid fa-gear" style={{ fontSize: '15px', width: '20px', textAlign: 'center' }} />
               <span>Settings</span>
             </button>
           </div>
         </div>
         
         <div className="admin-nav" style={{ paddingTop: 0 }}>
+          <button 
+            className="admin-nav-item" 
+            onClick={() => setShowBugModal(true)}
+            style={{ color: '#79213C', fontWeight: 600 }}
+          >
+            <i className="fa-solid fa-bug" style={{ fontSize: '15px', width: '20px', textAlign: 'center' }} />
+            <span>Report a Bug</span>
+          </button>
           <button className="admin-nav-item danger" onClick={logout}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            <i className="fa-solid fa-right-from-bracket" style={{ fontSize: '15px', width: '20px', textAlign: 'center' }} />
             <span>Logout</span>
           </button>
         </div>
@@ -132,6 +172,12 @@ export default function Admin() {
       </div>
 
       <MobileBottomNav />
+
+      {/* Report Bug Modal */}
+      <ReportBugModal
+        isOpen={showBugModal}
+        onClose={() => setShowBugModal(false)}
+      />
     </div>
   );
 }

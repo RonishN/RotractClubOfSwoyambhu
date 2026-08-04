@@ -4,6 +4,7 @@ import { getAuditLogs } from '../api/client';
 export default function AuditLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(15);
   const [totalPages, setTotalPages] = useState(1);
@@ -11,6 +12,7 @@ export default function AuditLogs() {
 
   const loadLogs = async (nextPage = 1) => {
     setLoading(true);
+    setError(null);
     try {
       const data = await getAuditLogs(nextPage, pageSize);
       setLogs(data.logs || []);
@@ -18,7 +20,8 @@ export default function AuditLogs() {
       setTotalPages(data.totalPages || 1);
       setTotalCount(data.totalCount || 0);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to load audit logs:', err);
+      setError(err.message || 'Failed to load audit logs');
       setLogs([]);
     } finally {
       setLoading(false);
@@ -52,6 +55,17 @@ export default function AuditLogs() {
           Showing {logs.length} of {totalCount} logs, page {page} of {totalPages}.
         </p>
       </div>
+
+      {error && (
+        <div style={{ padding: '12px 16px', marginBottom: '16px', borderRadius: '8px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <strong>Error loading audit logs:</strong> {error}
+          </div>
+          <button className="admin-btn admin-btn-outline" style={{ borderColor: '#fca5a5', color: '#991b1b' }} onClick={() => loadLogs(page)}>
+            Retry
+          </button>
+        </div>
+      )}
       {/* Desktop Table View */}
       <div className="admin-table-container desktop-only-table">
         <table className="admin-table">
@@ -94,14 +108,16 @@ export default function AuditLogs() {
               <div className="mobile-card-top">
                 <div>
                   <h4 className="mobile-card-title">{log.action}</h4>
-                  <div className="mobile-card-subtitle">👤 {log.username}</div>
+                  <div className="mobile-card-subtitle">
+                    <i className="fa-solid fa-user" style={{ marginRight: 4, color: 'var(--magenta)' }} /> {log.username}
+                  </div>
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
                   {new Date(log.created_at).toLocaleDateString()}
                 </div>
               </div>
               <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: 8 }}>
-                ⏰ {new Date(log.created_at).toLocaleTimeString()}
+                <i className="fa-solid fa-clock" style={{ marginRight: 4, color: '#94a3b8' }} /> {new Date(log.created_at).toLocaleTimeString()}
               </div>
               <pre style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'pre-wrap', background: '#f8fafc', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', overflowX: 'auto' }}>
                 {JSON.stringify(log.details || {}, null, 2)}

@@ -42,7 +42,7 @@ export default function AdminEdit() {
             width: '40px', 
             height: '40px', 
             borderWidth: '3px',
-            borderColor: 'rgba(226, 0, 122, 0.15)',
+            borderColor: 'rgba(121, 33, 60, 0.15)',
             borderTopColor: 'var(--magenta)' 
           }} />
           <h3 className="serif" style={{ fontSize: '1.25rem', letterSpacing: '0.5px', color: 'var(--navy)', margin: 0 }}>
@@ -64,12 +64,12 @@ export default function AdminEdit() {
       <BeforeUnloadGuard />
       <div className="admin-mode">
         <style>{`
-          /* Prevent Header from sliding under the AdminBar */
+          /* Dynamically push Header and main below the AdminBar */
           .admin-mode header {
-            top: 56px !important;
+            top: var(--admin-bar-height, 90px) !important;
           }
           .admin-mode main {
-            padding-top: 56px;
+            padding-top: var(--admin-bar-height, 90px);
           }
         `}</style>
 

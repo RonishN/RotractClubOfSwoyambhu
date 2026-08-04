@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import { Pool } from 'pg';
 import multer from 'multer';
 import ImageKit from 'imagekit';
@@ -83,7 +83,14 @@ let mongoClient;
 let mongoCollection = null;
 let postgresPool = null;
 let activeStorage = 'uninitialized';
-let cachedStore = null;
+// Two separate in-memory caches with 5-second TTL:
+//   cachedStorePublic — websiteData only (no history). Used by public routes.
+//   cachedStoreFull   — full document including history. Used by admin writes.
+let cachedStore = null;          // alias kept for writeStore compatibility
+let cachedStoreAt = 0;
+let cachedStoreFull = null;
+let cachedStoreFullAt = 0;
+const CACHE_TTL_MS = 5000;
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
@@ -420,9 +427,10 @@ async function connectPostgresBackup() {
       )
     `);
 
-    // Ensure email column exists on existing installations
+    // Ensure email and scheduled_for_deletion_at columns exist on existing installations
     await postgresPool.query(`
       ALTER TABLE admins ADD COLUMN IF NOT EXISTS email TEXT;
+      ALTER TABLE admins ADD COLUMN IF NOT EXISTS scheduled_for_deletion_at TIMESTAMPTZ;
     `);
 
     await postgresPool.query(`
@@ -436,10 +444,40 @@ async function connectPostgresBackup() {
     `);
 
     await postgresPool.query(`
+      CREATE TABLE IF NOT EXISTS error_logs (
+        id SERIAL PRIMARY KEY,
+        error_message TEXT NOT NULL,
+        error_stack TEXT,
+        error_code TEXT,
+        endpoint TEXT,
+        method TEXT,
+        status_code INT,
+        username TEXT,
+        user_role TEXT,
+        request_payload JSONB,
+        response_data JSONB,
+        client_info JSONB,
+        user_notes TEXT,
+        is_resolved BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await postgresPool.query(`
       CREATE TABLE IF NOT EXISTS event_subscribers (
         id SERIAL PRIMARY KEY,
         email TEXT UNIQUE NOT NULL,
         subscribed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    // Image deduplication: store sha256 → ImageKit URL mapping
+    await postgresPool.query(`
+      CREATE TABLE IF NOT EXISTS image_hashes (
+        sha256 TEXT PRIMARY KEY,
+        url TEXT NOT NULL,
+        original_name TEXT,
+        uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
 
@@ -499,7 +537,24 @@ async function connectMongo() {
 
   try {
     mongoClient = new MongoClient(MONGODB_URI, {
+      // ── Serverless-optimised connection pool ───────────────────────────────
+      // Keep pool tiny: Vercel functions are short-lived and each instance
+      // maintains its own pool — large pools waste Atlas free-tier connections.
+      minPoolSize: 1,
+      maxPoolSize: 5,
+      maxIdleTimeMS: 30_000,       // recycle idle sockets after 30 s
+
+      // ── Timeouts ──────────────────────────────────────────────────────────
       serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000,
+      socketTimeoutMS: 10_000,
+      heartbeatFrequencyMS: 10_000, // check server health every 10 s
+
+      // ── Wire compression — reduces payload size ~60 % for large JSON docs ─
+      compressors: ['zlib'],
+
+      // ── Read preference — serve reads from secondaries when available ──────
+      readPreference: 'secondaryPreferred',
     });
     await mongoClient.connect();
     const db = mongoClient.db(MONGODB_DB_NAME);
@@ -512,17 +567,33 @@ async function connectMongo() {
   }
 }
 
-async function readStore() {
-  if (cachedStore) {
-    return cachedStore;
+// readStore(includeHistory = false)
+//   includeHistory=false → fetches only websiteData (faster, smaller payload)
+//   includeHistory=true  → fetches full document including history (for admin writes)
+async function readStore(includeHistory = false) {
+  const now = Date.now();
+
+  // Return from the appropriate cache if still fresh
+  if (includeHistory) {
+    if (cachedStoreFull && (now - cachedStoreFullAt) < CACHE_TTL_MS) return cachedStoreFull;
+  } else {
+    if (cachedStore && (now - cachedStoreAt) < CACHE_TTL_MS) return cachedStore;
   }
 
   if (mongoCollection) {
     try {
-      const doc = await mongoCollection.findOne({ _id: DOC_ID });
+      const projection = includeHistory
+        ? {}                                  // full document
+        : { websiteData: 1, _id: 0 };        // lean — skip history array
+
+      const doc = await mongoCollection.findOne({ _id: DOC_ID }, { projection });
       if (doc) {
         const store = normalizeStore(doc);
-        cachedStore = store;
+        if (includeHistory) {
+          cachedStoreFull = store; cachedStoreFullAt = Date.now();
+        } else {
+          cachedStore = store; cachedStoreAt = Date.now();
+        }
         activeStorage = 'mongodb';
         return store;
       }
@@ -537,9 +608,11 @@ async function readStore() {
       }
 
       await mongoCollection.updateOne({ _id: DOC_ID }, { $set: seedStore }, { upsert: true });
-      cachedStore = normalizeStore(seedStore);
+      const normalized = normalizeStore(seedStore);
+      cachedStore = normalized;     cachedStoreAt = Date.now();
+      cachedStoreFull = normalized; cachedStoreFullAt = Date.now();
       activeStorage = 'mongodb';
-      return cachedStore;
+      return normalized;
     } catch (error) {
       logWarn(`MongoDB read failed, switching to PostgreSQL backup: ${error.message}`);
     }
@@ -548,8 +621,10 @@ async function readStore() {
   if (postgresPool) {
     const backupStore = await readFromPostgresBackup();
     activeStorage = 'postgres-backup';
-    cachedStore = backupStore || { websiteData: { ...websiteDefaults }, history: [] };
-    return cachedStore;
+    const store = backupStore || { websiteData: { ...websiteDefaults }, history: [] };
+    cachedStore = store;     cachedStoreAt = Date.now();
+    cachedStoreFull = store; cachedStoreFullAt = Date.now();
+    return store;
   }
 
   throw new Error('No storage provider available');
@@ -583,7 +658,8 @@ async function writeStore(store) {
     // Throws if EITHER write fails — caller will return 500 to client.
     await Promise.all(writes);
     activeStorage = mongoCollection && postgresPool ? 'mongodb+postgres' : (mongoCollection ? 'mongodb' : 'postgres-backup');
-    cachedStore = safeStore;
+    cachedStore = safeStore;     cachedStoreAt = Date.now();
+    cachedStoreFull = safeStore; cachedStoreFullAt = Date.now();
     return;
   }
 
@@ -599,7 +675,8 @@ async function writeStore(store) {
         await writeToPostgresBackup(safeStore);
       }
       activeStorage = 'mongodb';
-      cachedStore = safeStore;
+      cachedStore = safeStore;     cachedStoreAt = Date.now();
+      cachedStoreFull = safeStore; cachedStoreFullAt = Date.now();
       return;
     } catch (error) {
       logWarn(`MongoDB write failed, persisting to PostgreSQL backup: ${error.message}`);
@@ -609,7 +686,8 @@ async function writeStore(store) {
   if (postgresPool) {
     await writeToPostgresBackup(safeStore);
     activeStorage = 'postgres-backup';
-    cachedStore = safeStore;
+    cachedStore = safeStore;     cachedStoreAt = Date.now();
+    cachedStoreFull = safeStore; cachedStoreFullAt = Date.now();
     return;
   }
 
@@ -636,6 +714,10 @@ async function logAudit(action, username, details = {}) {
         'INSERT INTO audit_logs (action, username, details) VALUES ($1, $2, $3)',
         [action, username, JSON.stringify(details)]
       );
+      // Prune logs exceeding 50 entries
+      await postgresPool.query(
+        'DELETE FROM audit_logs WHERE id NOT IN (SELECT id FROM audit_logs ORDER BY created_at DESC, id DESC LIMIT 50)'
+      );
     }
     if (mongoCollection) {
       const db = mongoClient.db(MONGODB_DB_NAME);
@@ -645,9 +727,95 @@ async function logAudit(action, username, details = {}) {
         details,
         created_at: new Date()
       });
+      // Prune logs exceeding 50 entries
+      const excessAuditDocs = await db.collection('audit_logs').find().sort({ created_at: -1, _id: -1 }).skip(50).toArray();
+      if (excessAuditDocs.length > 0) {
+        const idsToDelete = excessAuditDocs.map(d => d._id);
+        await db.collection('audit_logs').deleteMany({ _id: { $in: idsToDelete } });
+      }
     }
   } catch (err) {
     logError(`Failed to save audit log: ${err.message}`);
+  }
+}
+
+async function logErrorToDb(errorData) {
+  const {
+    errorMessage = 'Unknown error',
+    errorStack = null,
+    errorCode = null,
+    endpoint = null,
+    method = null,
+    statusCode = null,
+    username = 'anonymous',
+    userRole = null,
+    requestPayload = null,
+    responseData = null,
+    clientInfo = null,
+    userNotes = null,
+    isResolved = false,
+  } = errorData;
+
+  try {
+    let savedId = null;
+    if (postgresPool) {
+      const res = await postgresPool.query(
+        `INSERT INTO error_logs 
+         (error_message, error_stack, error_code, endpoint, method, status_code, username, user_role, request_payload, response_data, client_info, user_notes, is_resolved)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13)
+         RETURNING id`,
+        [
+          String(errorMessage).slice(0, 1000),
+          errorStack ? String(errorStack).slice(0, 5000) : null,
+          errorCode ? String(errorCode).slice(0, 100) : null,
+          endpoint ? String(endpoint).slice(0, 255) : null,
+          method ? String(method).slice(0, 20) : null,
+          typeof statusCode === 'number' ? statusCode : null,
+          String(username || 'anonymous').slice(0, 100),
+          userRole ? String(userRole).slice(0, 50) : null,
+          requestPayload ? JSON.stringify(requestPayload) : null,
+          responseData ? JSON.stringify(responseData) : null,
+          clientInfo ? JSON.stringify(clientInfo) : null,
+          userNotes ? String(userNotes).slice(0, 2000) : null,
+          Boolean(isResolved)
+        ]
+      );
+      savedId = res.rows[0]?.id;
+      // Prune error logs exceeding 50 entries
+      await postgresPool.query(
+        'DELETE FROM error_logs WHERE id NOT IN (SELECT id FROM error_logs ORDER BY created_at DESC, id DESC LIMIT 50)'
+      );
+    }
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      const res = await db.collection('error_logs').insertOne({
+        error_message: String(errorMessage).slice(0, 1000),
+        error_stack: errorStack ? String(errorStack).slice(0, 5000) : null,
+        error_code: errorCode ? String(errorCode).slice(0, 100) : null,
+        endpoint: endpoint ? String(endpoint).slice(0, 255) : null,
+        method: method ? String(method).slice(0, 20) : null,
+        status_code: typeof statusCode === 'number' ? statusCode : null,
+        username: String(username || 'anonymous').slice(0, 100),
+        user_role: userRole ? String(userRole).slice(0, 50) : null,
+        request_payload: requestPayload,
+        response_data: responseData,
+        client_info: clientInfo,
+        user_notes: userNotes ? String(userNotes).slice(0, 2000) : null,
+        is_resolved: Boolean(isResolved),
+        created_at: new Date()
+      });
+      if (!savedId) savedId = res.insertedId;
+      // Prune error logs exceeding 50 entries
+      const excessErrorDocs = await db.collection('error_logs').find().sort({ created_at: -1, _id: -1 }).skip(50).toArray();
+      if (excessErrorDocs.length > 0) {
+        const idsToDelete = excessErrorDocs.map(d => d._id);
+        await db.collection('error_logs').deleteMany({ _id: { $in: idsToDelete } });
+      }
+    }
+    return savedId;
+  } catch (err) {
+    logError(`Failed to save error log to DB: ${err.message}`);
+    return null;
   }
 }
 
@@ -659,22 +827,22 @@ async function seedDefaultSuperAdmin() {
     const existing = await getAdminByUsername(superAdminUsername);
     const adminData = {
       username: superAdminUsername,
-        password_hash: superAdminPassHash,
-        role: 'SUPERADMIN',
-        permissions: ['VISUAL_EDITOR', 'ACCOUNT_PASSWORD_RESET', 'VIEW_LOGS', 'DEACTIVATE_ACCOUNT', 'DELETE_ACCOUNT', 'ADMIN_CREATOR', 'EVENT_MANAGER'],
-        is_temporary_password: false,
-        is_active: true,
-        passkeys: []
-      };
+      password_hash: superAdminPassHash,
+      role: 'SUPERADMIN',
+      permissions: ['VISUAL_EDITOR', 'ACCOUNT_PASSWORD_RESET', 'VIEW_LOGS', 'VIEW_ERROR_LOGS', 'DEACTIVATE_ACCOUNT', 'DELETE_ACCOUNT', 'ADMIN_CREATOR', 'EVENT_MANAGER'],
+      is_temporary_password: false,
+      is_active: true,
+      passkeys: []
+    };
       
-      if (postgresPool) {
-        await postgresPool.query(
-          `INSERT INTO admins (username, password_hash, role, permissions, is_temporary_password, is_active, passkeys) 
-           VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7::jsonb) 
-           ON CONFLICT (username) DO UPDATE SET permissions = EXCLUDED.permissions`,
-          [adminData.username, adminData.password_hash, adminData.role, JSON.stringify(adminData.permissions), adminData.is_temporary_password, adminData.is_active, JSON.stringify(adminData.passkeys)]
-        );
-      }
+    if (postgresPool) {
+      await postgresPool.query(
+        `INSERT INTO admins (username, password_hash, role, permissions, is_temporary_password, is_active, passkeys) 
+         VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7::jsonb) 
+         ON CONFLICT (username) DO UPDATE SET permissions = EXCLUDED.permissions`,
+        [adminData.username, adminData.password_hash, adminData.role, JSON.stringify(adminData.permissions), adminData.is_temporary_password, adminData.is_active, JSON.stringify(adminData.passkeys)]
+      );
+    }
       if (mongoCollection) {
         const db = mongoClient.db(MONGODB_DB_NAME);
         const { permissions, ...insertData } = adminData;
@@ -769,6 +937,40 @@ async function initStorage() {
   }
   
   await seedDefaultSuperAdmin();
+  await processScheduledDeletions();
+  setInterval(processScheduledDeletions, 60 * 1000);
+}
+
+async function processScheduledDeletions() {
+  try {
+    const now = new Date();
+    if (postgresPool) {
+      const expiredRes = await postgresPool.query(
+        'SELECT username FROM admins WHERE scheduled_for_deletion_at IS NOT NULL AND scheduled_for_deletion_at <= $1',
+        [now]
+      );
+      for (const row of expiredRes.rows) {
+        if (row.username !== 'sohail') {
+          await postgresPool.query('DELETE FROM admins WHERE username = $1', [row.username]);
+          await logAudit('PERMANENT_DELETE_ADMIN', 'SYSTEM', { targetAdmin: row.username });
+        }
+      }
+    }
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      const expiredDocs = await db.collection('admins').find({
+        scheduled_for_deletion_at: { $ne: null, $lte: now }
+      }).toArray();
+      for (const doc of expiredDocs) {
+        if (doc.username !== 'sohail') {
+          await db.collection('admins').deleteOne({ _id: doc._id });
+          await logAudit('PERMANENT_DELETE_ADMIN', 'SYSTEM', { targetAdmin: doc.username });
+        }
+      }
+    }
+  } catch (err) {
+    logError(`Error processing scheduled deletions: ${err.message}`);
+  }
 }
 
 function sha256(value) {
@@ -787,7 +989,7 @@ function getTokenFromRequest(req) {
   return getAuthToken(req);
 }
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const token = getTokenFromRequest(req);
   if (!token) {
     return res.status(401).json({ message: 'Unauthorized' });
@@ -795,7 +997,16 @@ function requireAuth(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
+    const admin = await getAdminByUsername(decoded.username);
+    if (!admin || admin.is_active === false || admin.scheduled_for_deletion_at) {
+      clearAuthCookie(res);
+      return res.status(401).json({ message: 'Account deactivated or scheduled for deletion' });
+    }
+    req.user = {
+      ...decoded,
+      permissions: admin.permissions || decoded.permissions || [],
+      role: admin.role || decoded.role,
+    };
     return next();
   } catch {
     return res.status(401).json({ message: 'Unauthorized' });
@@ -815,7 +1026,7 @@ app.get('/api/health', (_req, res) => {
 
 // Public content — no-store so browsers & CDNs never cache stale content
 app.get('/api/content', async (_req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=3600');
+  res.setHeader('Cache-Control', 'no-store');
   try {
     const store = await readStore();
     res.json({ websiteData: store.websiteData });
@@ -877,7 +1088,7 @@ app.get('/api/admin/session', requireAuth, (_req, res) => {
 
 app.get('/api/admin/content', requireAuth, async (_req, res) => {
   try {
-    const store = await readStore();
+    const store = await readStore(true);
     res.json({ websiteData: store.websiteData, history: store.history });
   } catch {
     res.status(500).json({ message: 'Failed to load admin content' });
@@ -892,7 +1103,7 @@ app.put('/api/admin/content', requireAuth, async (req, res) => {
     }
 
     const incoming = normalizeWebsiteData(req.body || {});
-    const store = await readStore();
+    const store = await readStore(true);
 
     const oldData = normalizeWebsiteData(store.websiteData);
     const newData = normalizeWebsiteData({
@@ -923,7 +1134,7 @@ app.post('/api/admin/restore', requireAuth, async (req, res) => {
       return res.status(400).json({ message: 'Invalid restore payload' });
     }
 
-    const store = await readStore();
+    const store = await readStore(true);
     const oldData = normalizeWebsiteData(store.websiteData);
     const payloadError = validateWebsitePayload(restoredSource);
     if (payloadError) {
@@ -948,7 +1159,7 @@ app.post('/api/admin/restore', requireAuth, async (req, res) => {
 
 app.post('/api/admin/restore-defaults', requireAuth, async (req, res) => {
   try {
-    const store = await readStore();
+    const store = await readStore(true);
     const oldData = normalizeWebsiteData(store.websiteData);
 
     const restored = {
@@ -989,13 +1200,16 @@ function validatePasswordComplexity(password) {
 }
 
 app.get('/api/admin/users', requireAuth, async (req, res) => {
-  if (!req.user.permissions?.includes('ADMIN_CREATOR') && req.user.role !== 'SUPERADMIN') {
+  const allowed = req.user.role === 'SUPERADMIN' ||
+    ['ADMIN_CREATOR', 'DELETE_ACCOUNT', 'DEACTIVATE_ACCOUNT', 'ACCOUNT_PASSWORD_RESET'].some(p => req.user.permissions?.includes(p));
+  if (!allowed) {
     return res.status(403).json({ message: 'Forbidden' });
   }
   try {
+    await processScheduledDeletions();
     let admins = [];
     if (postgresPool) {
-      const result = await postgresPool.query('SELECT username, email, role, permissions, is_active, is_temporary_password FROM admins');
+      const result = await postgresPool.query('SELECT username, email, role, permissions, is_active, is_temporary_password, scheduled_for_deletion_at FROM admins');
       admins = result.rows;
     } else if (mongoCollection) {
       const db = mongoClient.db(MONGODB_DB_NAME);
@@ -1167,18 +1381,51 @@ app.delete('/api/admin/users/:username', requireAuth, async (req, res) => {
     return res.status(400).json({ message: 'Cannot delete default superadmin' });
   }
   
+  const deletionTime = new Date(Date.now() + 24 * 60 * 60 * 1000);
   try {
     if (postgresPool) {
-      await postgresPool.query('DELETE FROM admins WHERE username = $1', [username]);
+      await postgresPool.query(
+        'UPDATE admins SET scheduled_for_deletion_at = $1, is_active = false WHERE username = $2',
+        [deletionTime, username]
+      );
     }
     if (mongoCollection) {
       const db = mongoClient.db(MONGODB_DB_NAME);
-      await db.collection('admins').deleteOne({ username });
+      await db.collection('admins').updateOne(
+        { username },
+        { $set: { scheduled_for_deletion_at: deletionTime, is_active: false } }
+      );
     }
-    await logAudit('DELETE_ADMIN', req.user.username, { targetAdmin: username });
-    res.json({ message: 'Admin deleted' });
+    await logAudit('SCHEDULE_DELETE_ADMIN', req.user.username, { targetAdmin: username, scheduled_for_deletion_at: deletionTime });
+    res.json({ message: 'Admin account scheduled for deletion in 24 hours. The account has been deactivated.', scheduled_for_deletion_at: deletionTime });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to delete admin' });
+    res.status(500).json({ message: 'Failed to schedule admin deletion' });
+  }
+});
+
+app.post('/api/admin/users/:username/cancel-deletion', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('DELETE_ACCOUNT') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+  const { username } = req.params;
+  try {
+    if (postgresPool) {
+      await postgresPool.query(
+        'UPDATE admins SET scheduled_for_deletion_at = NULL, is_active = true WHERE username = $1',
+        [username]
+      );
+    }
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      await db.collection('admins').updateOne(
+        { username },
+        { $set: { scheduled_for_deletion_at: null, is_active: true } }
+      );
+    }
+    await logAudit('CANCEL_DELETE_ADMIN', req.user.username, { targetAdmin: username });
+    res.json({ message: 'Account deletion cancelled successfully and account reactivated.' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to cancel admin deletion' });
   }
 });
 
@@ -1313,11 +1560,276 @@ app.get('/api/admin/logs', requireAuth, async (req, res) => {
   }
 });
 
+// ── Error Reports & Error Logs APIs ──────────────────────────────────────────
+
+// Public & Admin bug reporting endpoint
+app.post('/api/error-report', async (req, res) => {
+  try {
+    let authUser = null;
+    const token = getAuthToken(req);
+    if (token) {
+      try {
+        authUser = jwt.verify(token, JWT_SECRET);
+      } catch {
+        // Ignored if invalid token
+      }
+    }
+
+    const {
+      errorMessage,
+      errorStack,
+      errorCode,
+      endpoint,
+      method,
+      statusCode,
+      requestPayload,
+      responseData,
+      clientInfo,
+      userNotes,
+    } = req.body || {};
+
+    if (!errorMessage && !endpoint) {
+      return res.status(400).json({ message: 'Error message or endpoint is required' });
+    }
+
+    const reportId = await logErrorToDb({
+      errorMessage: errorMessage || 'Client reported error',
+      errorStack,
+      errorCode,
+      endpoint,
+      method,
+      statusCode: Number.isInteger(statusCode) ? statusCode : 500,
+      username: authUser?.username || req.body?.username || 'anonymous',
+      userRole: authUser?.role || req.body?.userRole || null,
+      requestPayload,
+      responseData,
+      clientInfo: {
+        ...(clientInfo || {}),
+        ip: req.ip || req.headers['x-forwarded-for'] || null,
+        userAgent: req.headers['user-agent'] || clientInfo?.userAgent || null,
+      },
+      userNotes,
+      isResolved: false,
+    });
+
+    if (authUser) {
+      await logAudit('REPORT_BUG', authUser.username, { reportId, endpoint, errorCode });
+    }
+
+    res.json({
+      success: true,
+      reportId,
+      message: 'Bug report submitted successfully to Error Logs.',
+    });
+  } catch (err) {
+    logError(`Error reporting failed: ${err.message}`);
+    res.status(500).json({ message: 'Failed to process bug report' });
+  }
+});
+
+// Get paginated and filtered error logs (Requires VIEW_ERROR_LOGS or SUPERADMIN)
+app.get('/api/admin/error-logs', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('VIEW_ERROR_LOGS') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden: Requires VIEW_ERROR_LOGS permission' });
+  }
+
+  try {
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const pageSize = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 15));
+    const offset = (page - 1) * pageSize;
+    const statusFilter = req.query.status || 'all'; // 'all', 'unresolved', 'resolved'
+    const search = (req.query.search || '').trim().toLowerCase();
+
+    let logs = [];
+    let totalCount = 0;
+    let unresolvedCount = 0;
+    let resolvedCount = 0;
+
+    if (postgresPool) {
+      // Global counts for stat cards
+      const totalRes = await postgresPool.query('SELECT COUNT(*)::int AS count FROM error_logs');
+      const unresRes = await postgresPool.query('SELECT COUNT(*)::int AS count FROM error_logs WHERE is_resolved = false');
+      totalCount = totalRes.rows[0]?.count || 0;
+      unresolvedCount = unresRes.rows[0]?.count || 0;
+      resolvedCount = totalCount - unresolvedCount;
+
+      // Filtered query
+      const whereClauses = [];
+      const params = [];
+      let pIdx = 1;
+
+      if (statusFilter === 'unresolved') {
+        whereClauses.push(`is_resolved = false`);
+      } else if (statusFilter === 'resolved') {
+        whereClauses.push(`is_resolved = true`);
+      }
+
+      if (search) {
+        whereClauses.push(`(
+          LOWER(error_message) LIKE $${pIdx} OR 
+          LOWER(COALESCE(endpoint, '')) LIKE $${pIdx} OR 
+          LOWER(COALESCE(username, '')) LIKE $${pIdx} OR 
+          LOWER(COALESCE(error_code, '')) LIKE $${pIdx}
+        )`);
+        params.push(`%${search}%`);
+        pIdx++;
+      }
+
+      const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+      
+      const filteredCountRes = await postgresPool.query(`SELECT COUNT(*)::int AS count FROM error_logs ${whereSql}`, params);
+      const filteredCount = filteredCountRes.rows[0]?.count || 0;
+
+      const queryParams = [...params, pageSize, offset];
+      const listRes = await postgresPool.query(
+        `SELECT * FROM error_logs ${whereSql} ORDER BY created_at DESC LIMIT $${pIdx} OFFSET $${pIdx + 1}`,
+        queryParams
+      );
+      logs = listRes.rows;
+
+      res.json({
+        logs,
+        page,
+        pageSize,
+        totalCount: filteredCount,
+        globalTotal: totalCount,
+        unresolvedCount,
+        resolvedCount,
+        totalPages: Math.max(1, Math.ceil(filteredCount / pageSize)),
+      });
+      return;
+    }
+
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      const collection = db.collection('error_logs');
+
+      totalCount = await collection.countDocuments();
+      unresolvedCount = await collection.countDocuments({ is_resolved: false });
+      resolvedCount = totalCount - unresolvedCount;
+
+      const filter = {};
+      if (statusFilter === 'unresolved') filter.is_resolved = false;
+      if (statusFilter === 'resolved') filter.is_resolved = true;
+      if (search) {
+        filter.$or = [
+          { error_message: { $regex: search, $options: 'i' } },
+          { endpoint: { $regex: search, $options: 'i' } },
+          { username: { $regex: search, $options: 'i' } },
+          { error_code: { $regex: search, $options: 'i' } },
+        ];
+      }
+
+      const filteredCount = await collection.countDocuments(filter);
+      logs = await collection.find(filter).sort({ created_at: -1 }).skip(offset).limit(pageSize).toArray();
+
+      res.json({
+        logs,
+        page,
+        pageSize,
+        totalCount: filteredCount,
+        globalTotal: totalCount,
+        unresolvedCount,
+        resolvedCount,
+        totalPages: Math.max(1, Math.ceil(filteredCount / pageSize)),
+      });
+      return;
+    }
+
+    res.status(500).json({ message: 'No database storage available' });
+  } catch (err) {
+    logError(`Fetch error logs failed: ${err.message}`);
+    res.status(500).json({ message: 'Failed to fetch error logs' });
+  }
+});
+
+// Toggle resolve state of an error log
+app.put('/api/admin/error-logs/:id/resolve', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('VIEW_ERROR_LOGS') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden: Requires VIEW_ERROR_LOGS permission' });
+  }
+
+  const { id } = req.params;
+  const { is_resolved } = req.body;
+  const newStatus = typeof is_resolved === 'boolean' ? is_resolved : true;
+
+  try {
+    if (postgresPool) {
+      const numId = Number(id);
+      if (Number.isInteger(numId)) {
+        await postgresPool.query('UPDATE error_logs SET is_resolved = $1 WHERE id = $2', [newStatus, numId]).catch(() => {});
+      }
+    }
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      const query = ObjectId.isValid(id) ? { _id: new ObjectId(id) } : { id: Number(id) || id };
+      await db.collection('error_logs').updateOne(query, { $set: { is_resolved: newStatus } }).catch(() => {});
+    }
+
+    await logAudit('RESOLVE_ERROR_LOG', req.user.username, { errorLogId: id, is_resolved: newStatus });
+    res.json({ message: `Error log marked as ${newStatus ? 'resolved' : 'unresolved'}`, is_resolved: newStatus });
+  } catch (err) {
+    logError(`Resolve error log failed: ${err.message}`);
+    res.status(500).json({ message: 'Failed to update error log status' });
+  }
+});
+
+// Delete a single error log
+app.delete('/api/admin/error-logs/:id', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('VIEW_ERROR_LOGS') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden: Requires VIEW_ERROR_LOGS permission' });
+  }
+
+  const { id } = req.params;
+  try {
+    if (postgresPool) {
+      const numId = Number(id);
+      if (Number.isInteger(numId)) {
+        await postgresPool.query('DELETE FROM error_logs WHERE id = $1', [numId]).catch(() => {});
+      }
+    }
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      const query = ObjectId.isValid(id) ? { _id: new ObjectId(id) } : { id: Number(id) || id };
+      await db.collection('error_logs').deleteOne(query).catch(() => {});
+    }
+
+    await logAudit('DELETE_ERROR_LOG', req.user.username, { errorLogId: id });
+    res.json({ message: 'Error log deleted' });
+  } catch (err) {
+    logError(`Delete error log failed: ${err.message}`);
+    res.status(500).json({ message: 'Failed to delete error log' });
+  }
+});
+
+// Clear all error logs
+app.delete('/api/admin/error-logs', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('VIEW_ERROR_LOGS') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden: Requires VIEW_ERROR_LOGS permission' });
+  }
+
+  try {
+    if (postgresPool) {
+      await postgresPool.query('DELETE FROM error_logs');
+    }
+    if (mongoCollection) {
+      const db = mongoClient.db(MONGODB_DB_NAME);
+      await db.collection('error_logs').deleteMany({});
+    }
+
+    await logAudit('CLEAR_ALL_ERROR_LOGS', req.user.username);
+    res.json({ message: 'All error logs have been cleared' });
+  } catch (err) {
+    logError(`Clear error logs failed: ${err.message}`);
+    res.status(500).json({ message: 'Failed to clear error logs' });
+  }
+});
+
 // ── Event Management APIs ───────────────────────────────────────────────────
 
 app.get('/api/events', async (req, res) => {
   try {
-    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=3600');
+    res.setHeader('Cache-Control', 'no-store');
     const store = await readStore();
     const allEvents = Array.isArray(store.websiteData?.eventsList) ? store.websiteData.eventsList : [];
     // Public only gets published events
@@ -1374,7 +1886,7 @@ app.post('/api/admin/events', requireAuth, async (req, res) => {
     : [];
 
   try {
-    const store = await readStore();
+    const store = await readStore(true);
     const oldData = normalizeWebsiteData(store.websiteData);
     const existingList = Array.isArray(oldData.eventsList) ? oldData.eventsList : [];
 
@@ -1628,7 +2140,7 @@ app.put('/api/admin/events/:id', requireAuth, async (req, res) => {
     : [];
 
   try {
-    const store = await readStore();
+    const store = await readStore(true);
     const oldData = normalizeWebsiteData(store.websiteData);
     const existingList = Array.isArray(oldData.eventsList) ? oldData.eventsList : [];
 
@@ -1680,7 +2192,7 @@ app.post('/api/admin/events/:id/notify-subscribers', requireAuth, async (req, re
   const { id } = req.params;
 
   try {
-    const store = await readStore();
+    const store = await readStore(true);
     const oldData = normalizeWebsiteData(store.websiteData);
     const existingList = Array.isArray(oldData.eventsList) ? oldData.eventsList : [];
 
@@ -1740,7 +2252,7 @@ app.post('/api/admin/events/reset-notified', requireAuth, async (req, res) => {
   }
 
   try {
-    const store = await readStore();
+    const store = await readStore(true);
     const oldData = normalizeWebsiteData(store.websiteData);
     const existingList = Array.isArray(oldData.eventsList) ? oldData.eventsList : [];
 
@@ -1772,7 +2284,7 @@ app.delete('/api/admin/events/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
 
   try {
-    const store = await readStore();
+    const store = await readStore(true);
     const oldData = normalizeWebsiteData(store.websiteData);
     const existingList = Array.isArray(oldData.eventsList) ? oldData.eventsList : [];
 
@@ -1789,6 +2301,50 @@ app.delete('/api/admin/events/:id', requireAuth, async (req, res) => {
   } catch (err) {
     logError(`Delete event error: ${err.message}`);
     res.status(500).json({ message: 'Failed to delete event' });
+  }
+});
+
+// Toggle Priority Event — only one event can be priority at a time
+app.put('/api/admin/events/:id/priority', requireAuth, async (req, res) => {
+  if (!req.user.permissions?.includes('EVENT_MANAGER') && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ message: 'Forbidden: Requires EVENT_MANAGER or SUPERADMIN' });
+  }
+
+  const { id } = req.params;
+
+  try {
+    const store = await readStore(true);
+    const oldData = normalizeWebsiteData(store.websiteData);
+    const existingList = Array.isArray(oldData.eventsList) ? oldData.eventsList : [];
+
+    const targetIndex = existingList.findIndex(e => e.id === id);
+    if (targetIndex === -1) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    const isCurrentlyPriority = Boolean(existingList[targetIndex].isPriority);
+
+    // Toggle: if already priority → remove it; if not → set it and clear all others
+    const nextEvents = existingList.map((ev, i) => ({
+      ...ev,
+      isPriority: !isCurrentlyPriority && i === targetIndex,
+    }));
+
+    const newData = { ...oldData, eventsList: nextEvents, timestamp: new Date().toLocaleString() };
+    const historyEntry = { old: oldData, new: newData, changedBy: req.user.username };
+    const nextHistory = [historyEntry, ...store.history].slice(0, 10);
+
+    await writeStore({ websiteData: newData, history: nextHistory });
+    await logAudit('SET_PRIORITY_EVENT', req.user.username, { eventId: id, isPriority: !isCurrentlyPriority });
+
+    res.json({
+      message: !isCurrentlyPriority ? 'Event set as priority!' : 'Priority event cleared.',
+      isPriority: !isCurrentlyPriority,
+      events: nextEvents,
+    });
+  } catch (err) {
+    logError(`Set priority event error: ${err.message}`);
+    res.status(500).json({ message: 'Failed to update priority event' });
   }
 });
 
@@ -1810,6 +2366,25 @@ app.post('/api/admin/upload', requireAuth, upload.single('image'), async (req, r
     // Validate file size (max 10 MB)
     if (req.file.size > 10 * 1024 * 1024) {
       return res.status(400).json({ message: 'File too large. Maximum size is 10 MB.' });
+    }
+
+    // Hash the file bytes for deduplication
+    const fileHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+
+    // Check if this exact image was already uploaded
+    if (postgresPool) {
+      try {
+        const existing = await postgresPool.query(
+          'SELECT url FROM image_hashes WHERE sha256 = $1 LIMIT 1',
+          [fileHash]
+        );
+        if (existing.rows.length > 0) {
+          logInfo(`Dedup hit — reusing existing image: ${existing.rows[0].url}`);
+          return res.json({ url: existing.rows[0].url, deduplicated: true });
+        }
+      } catch (hashLookupErr) {
+        logWarn(`Hash lookup failed (non-fatal): ${hashLookupErr.message}`);
+      }
     }
 
     // Check if ImageKit is properly configured
@@ -1836,11 +2411,45 @@ app.post('/api/admin/upload', requireAuth, upload.single('image'), async (req, r
       folder: '/rotaract',
     });
 
+    // Store hash → URL for future deduplication
+    if (postgresPool) {
+      try {
+        await postgresPool.query(
+          `INSERT INTO image_hashes (sha256, url, original_name)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (sha256) DO NOTHING`,
+          [fileHash, uploadResponse.url, req.file.originalname || null]
+        );
+      } catch (hashStoreErr) {
+        logWarn(`Hash store failed (non-fatal): ${hashStoreErr.message}`);
+      }
+    }
+
     logInfo(`Image uploaded to ImageKit: ${uploadResponse.url}`);
     res.json({ url: uploadResponse.url });
   } catch (err) {
     logError(`ImageKit upload error: ${err.message}`);
-    res.status(500).json({ message: 'Failed to upload image. Please try again.' });
+    const reportId = await logErrorToDb({
+      errorMessage: `Image upload failed: ${err.message}`,
+      errorStack: err.stack,
+      errorCode: 'UPLOAD_FAILED',
+      endpoint: '/api/admin/upload',
+      method: 'POST',
+      statusCode: 500,
+      username: req.user?.username || 'admin',
+      userRole: req.user?.role || 'ADMIN',
+      requestPayload: {
+        filename: req.file?.originalname,
+        size: req.file?.size,
+        mimetype: req.file?.mimetype,
+      },
+    });
+
+    res.status(500).json({
+      message: 'Failed to upload image. Please try again.',
+      error: err.message,
+      reportId,
+    });
   }
 });
 

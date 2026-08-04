@@ -3,12 +3,14 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useLang } from '../context/LanguageContext';
 import logo from '../assets/images/logo.png';
 import { checkAdminSession } from '../api/client';
+import ReportBugModal from './ReportBugModal';
 
 export default function Header() {
   const { lang, toggleLang } = useLang();
   const navigate = useNavigate();
   const location = useLocation();
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [showBugModal, setShowBugModal] = useState(false);
 
   const isHomePage = location.pathname === '/';
   const [scrolled, setScrolled] = useState(!isHomePage);
@@ -64,66 +66,95 @@ export default function Header() {
   const isScrolled = !isHomePage || scrolled;
 
   return (
-    <header className={isScrolled ? 'scrolled' : ''}>
-      <a href="#hero" onClick={scrollTo('hero')} className="logo">
-        <img
-          src={logo}
-          alt="Logo"
-          style={{ width: 55, height: 55, objectFit: 'contain', borderRadius: '50%' }}
-        />
-        <div className="logo-text">
-          {lang === 'en' ? (
-            <h1>Club of Swoyambhu</h1>
-          ) : (
-            <h1 className="devanagari" style={{ fontSize: '1rem', margin: 0 }}>
-              स्वयम्भू रोटर्याक्ट क्लब
-            </h1>
-          )}
-        </div>
-      </a>
+    <>
+      <header className={isScrolled ? 'scrolled' : ''}>
+        <a href="#hero" onClick={scrollTo('hero')} className="logo">
+          <img
+            src={logo}
+            alt="Logo"
+            style={{ width: 55, height: 55, objectFit: 'contain', borderRadius: '50%' }}
+          />
+          <div className="logo-text">
+            {lang === 'en' ? (
+              <h1>Rotaract Club of Swoyambhu</h1>
+            ) : (
+              <h1 className="devanagari" style={{ fontSize: '1rem', margin: 0 }}>
+                स्वयम्भू रोटर्याक्ट क्लब
+              </h1>
+            )}
+          </div>
+        </a>
 
-      <button className="hamburger" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Toggle Menu">
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
+        <nav className={mobileMenuOpen ? 'nav-open' : ''}>
+          <ul>
+            <li>
+              <Link to="/" onClick={() => setMobileMenuOpen(false)}>
+                {lang === 'en' ? 'Home' : 'गृहपृष्ठ'}
+              </Link>
+            </li>
+            <li>
+              <Link to="/events" onClick={() => setMobileMenuOpen(false)}>
+                {lang === 'en' ? 'Events' : 'कार्यक्रमहरू'}
+              </Link>
+            </li>
+            <li>
+              <Link to="/gallery" onClick={() => setMobileMenuOpen(false)}>
+                {lang === 'en' ? 'Gallery' : 'ग्यालरी'}
+              </Link>
+            </li>
+            <li>
+              <Link to={isAdminLoggedIn ? '/admin' : '/login'} onClick={() => setMobileMenuOpen(false)}>
+                {isAdminLoggedIn
+                  ? (lang === 'en' ? 'Admin' : 'एडमिन')
+                  : (lang === 'en' ? 'Login' : 'लगइन')}
+              </Link>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={() => { setShowBugModal(true); setMobileMenuOpen(false); }}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'inherit',
+                  cursor: 'pointer',
+                  fontSize: 'inherit',
+                  fontFamily: 'inherit',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: 0,
+                  opacity: 0.85,
+                  transition: 'opacity 0.2s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                onMouseLeave={e => e.currentTarget.style.opacity = 0.85}
+                title="Report a Bug or Issue"
+              >
+                <i className="fa-solid fa-bug" style={{ fontSize: '0.85rem' }} />
+                <span>{lang === 'en' ? 'Report Bug' : 'समस्या दर्ता'}</span>
+              </button>
+            </li>
+            <li>
+              <div 
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }} 
+                onClick={() => { toggleLang(); setMobileMenuOpen(false); }}
+              >
+                <span style={{ opacity: lang === 'en' ? 1 : 0.5, transition: 'opacity 0.2s' }}>EN</span>
+                <span style={{ opacity: 0.5 }}>|</span>
+                <span style={{ opacity: lang === 'ne' ? 1 : 0.5, transition: 'opacity 0.2s', fontFamily: 'var(--font-devanagari)' }}>ने</span>
+              </div>
+            </li>
+          </ul>
+        </nav>
+      </header>
 
-      <nav className={mobileMenuOpen ? 'nav-open' : ''}>
-        <ul>
-          <li>
-            <Link to="/" onClick={() => setMobileMenuOpen(false)}>
-              {lang === 'en' ? 'Home' : 'गृहपृष्ठ'}
-            </Link>
-          </li>
-          <li>
-            <Link to="/events" onClick={() => setMobileMenuOpen(false)}>
-              {lang === 'en' ? 'Events' : 'कार्यक्रमहरू'}
-            </Link>
-          </li>
-          <li>
-            <Link to="/gallery" onClick={() => setMobileMenuOpen(false)}>
-              {lang === 'en' ? 'Gallery' : 'ग्यालरी'}
-            </Link>
-          </li>
-          <li>
-            <Link to={isAdminLoggedIn ? '/admin' : '/login'} onClick={() => setMobileMenuOpen(false)}>
-              {isAdminLoggedIn
-                ? (lang === 'en' ? 'Admin' : 'एडमिन')
-                : (lang === 'en' ? 'Login' : 'लगइन')}
-            </Link>
-          </li>
-          <li>
-            <div 
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }} 
-              onClick={() => { toggleLang(); setMobileMenuOpen(false); }}
-            >
-              <span style={{ opacity: lang === 'en' ? 1 : 0.5, transition: 'opacity 0.2s' }}>EN</span>
-              <span style={{ opacity: 0.5 }}>|</span>
-              <span style={{ opacity: lang === 'ne' ? 1 : 0.5, transition: 'opacity 0.2s', fontFamily: 'var(--font-devanagari)' }}>ने</span>
-            </div>
-          </li>
-        </ul>
-      </nav>
-    </header>
+      {/* Report Bug Modal */}
+      <ReportBugModal
+        isOpen={showBugModal}
+        onClose={() => setShowBugModal(false)}
+      />
+    </>
   );
 }

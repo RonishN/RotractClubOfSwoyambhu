@@ -49,9 +49,13 @@ async function request(path, options = {}, requestOptions = {}) {
   }
 
   if (!response.ok) {
-    const error = new Error(payload?.message || payload?.error || 'Request failed');
+    const defaultMsg = response.statusText ? `Request failed (${response.status}: ${response.statusText})` : `Request failed (${response.status})`;
+    const error = new Error(payload?.message || payload?.error || defaultMsg);
     error.status = response.status;
     error.code = payload?.code || null;
+    error.endpoint = path;
+    error.method = options.method || 'GET';
+    error.responseData = payload;
     throw error;
   }
 
@@ -122,6 +126,12 @@ export function toggleUserStatus(username, is_active) {
 export function deleteUser(username) {
   return request(`/admin/users/${username}`, {
     method: 'DELETE',
+  });
+}
+
+export function cancelUserDeletion(username) {
+  return request(`/admin/users/${username}/cancel-deletion`, {
+    method: 'POST',
   });
 }
 
@@ -263,3 +273,65 @@ export function resetEventNotifiedStates() {
     method: 'POST',
   });
 }
+
+export function setPriorityEvent(id) {
+  return request(`/admin/events/${id}/priority`, {
+    method: 'PUT',
+  });
+}
+
+/**
+ * sendErrorReport — submits diagnostic bug report to /api/error-report
+ */
+export async function sendErrorReport(reportData) {
+  const clientInfo = {
+    userAgent: navigator.userAgent,
+    pageUrl: window.location.href,
+    screen: `${window.innerWidth}x${window.innerHeight} (dpr: ${window.devicePixelRatio || 1})`,
+    platform: navigator.platform,
+    language: navigator.language,
+    online: navigator.onLine,
+    timestamp: new Date().toISOString(),
+  };
+
+  return request('/error-report', {
+    method: 'POST',
+    body: JSON.stringify({
+      ...reportData,
+      clientInfo: {
+        ...clientInfo,
+        ...(reportData.clientInfo || {}),
+      },
+    }),
+  });
+}
+
+export function getErrorLogs(page = 1, limit = 15, status = 'all', search = '') {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+    status,
+    search,
+  });
+  return request(`/admin/error-logs?${params.toString()}`);
+}
+
+export function toggleResolveErrorLog(id, is_resolved) {
+  return request(`/admin/error-logs/${id}/resolve`, {
+    method: 'PUT',
+    body: JSON.stringify({ is_resolved }),
+  });
+}
+
+export function deleteErrorLog(id) {
+  return request(`/admin/error-logs/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export function clearAllErrorLogs() {
+  return request('/admin/error-logs', {
+    method: 'DELETE',
+  });
+}
+

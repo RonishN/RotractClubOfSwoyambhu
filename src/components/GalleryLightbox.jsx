@@ -1,0 +1,574 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useLang } from '../context/LanguageContext';
+
+export default function GalleryLightbox({
+  images = [],
+  currentIndex = 0,
+  isOpen = false,
+  onClose,
+  onNavigate,
+}) {
+  const { lang } = useLang();
+  const [index, setIndex] = useState(currentIndex);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [touchStartX, setTouchStartX] = useState(null);
+  const [touchEndX, setTouchEndX] = useState(null);
+
+  const containerRef = useRef(null);
+  const thumbnailStripRef = useRef(null);
+
+  // Sync index when currentIndex prop changes
+  useEffect(() => {
+    if (isOpen) {
+      setIndex(currentIndex);
+      setZoomLevel(1);
+    }
+  }, [currentIndex, isOpen]);
+
+  const total = images.length;
+  const currentImage = images[index] || null;
+
+  const goToPrev = useCallback(() => {
+    if (total <= 1) return;
+    setZoomLevel(1);
+    const nextIdx = (index - 1 + total) % total;
+    setIndex(nextIdx);
+    onNavigate?.(nextIdx);
+  }, [index, total, onNavigate]);
+
+  const goToNext = useCallback(() => {
+    if (total <= 1) return;
+    setZoomLevel(1);
+    const nextIdx = (index + 1) % total;
+    setIndex(nextIdx);
+    onNavigate?.(nextIdx);
+  }, [index, total, onNavigate]);
+
+  const handleZoomIn = () => setZoomLevel((z) => Math.min(3, +(z + 0.35).toFixed(2)));
+  const handleZoomOut = () => setZoomLevel((z) => Math.max(0.6, +(z - 0.35).toFixed(2)));
+  const handleResetZoom = () => setZoomLevel(1);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen().catch(() => {});
+      setIsFullscreen(false);
+    }
+  };
+
+  const handleDownload = async (e) => {
+    e.stopPropagation();
+    if (!currentImage?.imgUrl) return;
+    try {
+      const response = await fetch(currentImage.imgUrl);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `rotaract_swoyambhu_gallery_${index + 1}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch {
+      window.open(currentImage.imgUrl, '_blank');
+    }
+  };
+
+  const handleCopyLink = (e) => {
+    e.stopPropagation();
+    if (!currentImage?.imgUrl) return;
+    navigator.clipboard.writeText(currentImage.imgUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose?.();
+      } else if (e.key === 'ArrowLeft') {
+        goToPrev();
+      } else if (e.key === 'ArrowRight') {
+        goToNext();
+      } else if (e.key === '+' || e.key === '=') {
+        handleZoomIn();
+      } else if (e.key === '-') {
+        handleZoomOut();
+      } else if (e.key === '0') {
+        handleResetZoom();
+      } else if (e.key === 'f' || e.key === 'F') {
+        toggleFullscreen();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, goToPrev, goToNext, onClose]);
+
+  // Scroll active thumbnail into view
+  useEffect(() => {
+    if (thumbnailStripRef.current) {
+      const activeThumb = thumbnailStripRef.current.children[index];
+      if (activeThumb) {
+        activeThumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+  }, [index]);
+
+  // Touch swipe handling
+  const handleTouchStart = (e) => {
+    setTouchStartX(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e) => {
+    setTouchEndX(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStartX || !touchEndX) return;
+    const distance = touchStartX - touchEndX;
+    if (distance > 50) {
+      goToNext(); // Swiped left -> next
+    } else if (distance < -50) {
+      goToPrev(); // Swiped right -> prev
+    }
+    setTouchStartX(null);
+    setTouchEndX(null);
+  };
+
+  if (!isOpen || !currentImage) return null;
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(10, 16, 31, 0.96)',
+        backdropFilter: 'blur(12px)',
+        zIndex: 99999,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        userSelect: 'none',
+        overflow: 'hidden',
+      }}
+      onClick={onClose}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* ── Top Bar ── */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '16px 24px',
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)',
+          zIndex: 10,
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Left: Counter badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            style={{
+              background: 'rgba(121, 33, 60, 0.4)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              color: '#FCFBF7',
+              borderRadius: 30,
+              padding: '6px 14px',
+              fontSize: '0.86rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <i className="fa-solid fa-image" style={{ color: '#E8871A', fontSize: '0.85rem' }} />
+            <span>{index + 1} / {total}</span>
+          </div>
+          <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', display: 'none' }} className="desktop-only">
+            (Use Arrow Keys <i className="fa-solid fa-arrow-left" /> <i className="fa-solid fa-arrow-right" /> or swipe)
+          </span>
+        </div>
+
+        {/* Right: Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Zoom controls */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              background: 'rgba(255,255,255,0.08)',
+              borderRadius: 30,
+              border: '1px solid rgba(255,255,255,0.12)',
+              padding: '2px 4px',
+            }}
+          >
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              disabled={zoomLevel <= 0.6}
+              title="Zoom Out (-)"
+              style={{
+                background: 'none', border: 'none', color: 'white', padding: '6px 10px',
+                cursor: zoomLevel <= 0.6 ? 'not-allowed' : 'pointer', opacity: zoomLevel <= 0.6 ? 0.3 : 0.85,
+                fontSize: '0.9rem',
+              }}
+            >
+              <i className="fa-solid fa-magnifying-glass-minus" />
+            </button>
+            <button
+              type="button"
+              onClick={handleResetZoom}
+              title="Reset Zoom (0)"
+              style={{
+                background: 'none', border: 'none', color: '#E8871A', padding: '4px 8px',
+                cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700, minWidth: 44,
+              }}
+            >
+              {Math.round(zoomLevel * 100)}%
+            </button>
+            <button
+              type="button"
+              onClick={handleZoomIn}
+              disabled={zoomLevel >= 3}
+              title="Zoom In (+)"
+              style={{
+                background: 'none', border: 'none', color: 'white', padding: '6px 10px',
+                cursor: zoomLevel >= 3 ? 'not-allowed' : 'pointer', opacity: zoomLevel >= 3 ? 0.3 : 0.85,
+                fontSize: '0.9rem',
+              }}
+            >
+              <i className="fa-solid fa-magnifying-glass-plus" />
+            </button>
+          </div>
+
+          {/* Fullscreen button */}
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            title="Toggle Fullscreen (F)"
+            style={{
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              color: 'white',
+              width: 36, height: 36, borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', opacity: 0.85, transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = 1}
+            onMouseLeave={e => e.currentTarget.style.opacity = 0.85}
+          >
+            <i className={`fa-solid ${isFullscreen ? 'fa-compress' : 'fa-expand'}`} style={{ fontSize: '0.88rem' }} />
+          </button>
+
+          {/* Copy link button */}
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            title={copiedLink ? 'Link Copied!' : 'Copy Direct Image Link'}
+            style={{
+              background: copiedLink ? '#10b981' : 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              color: 'white',
+              width: 36, height: 36, borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', opacity: 0.85, transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = 1}
+            onMouseLeave={e => e.currentTarget.style.opacity = 0.85}
+          >
+            <i className={`fa-solid ${copiedLink ? 'fa-check' : 'fa-link'}`} style={{ fontSize: '0.88rem' }} />
+          </button>
+
+          {/* Download button */}
+          <button
+            type="button"
+            onClick={handleDownload}
+            title="Download Image"
+            style={{
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              color: 'white',
+              width: 36, height: 36, borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', opacity: 0.85, transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = 1}
+            onMouseLeave={e => e.currentTarget.style.opacity = 0.85}
+          >
+            <i className="fa-solid fa-download" style={{ fontSize: '0.88rem' }} />
+          </button>
+
+          {/* Close button */}
+          <button
+            type="button"
+            onClick={onClose}
+            title="Close Lightbox (Esc)"
+            style={{
+              background: 'rgba(121,33,60,0.6)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              color: 'white',
+              width: 36, height: 36, borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = '#79213C';
+              e.currentTarget.style.transform = 'scale(1.08)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(121,33,60,0.6)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+          >
+            <i className="fa-solid fa-xmark" style={{ fontSize: '1.1rem' }} />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Main Photo Viewing Area ── */}
+      <div
+        style={{
+          flex: 1,
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '12px 20px',
+          overflow: 'hidden',
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        {/* Previous Button (<) */}
+        {total > 1 && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); goToPrev(); }}
+            title="Previous Image (Left Arrow)"
+            style={{
+              position: 'absolute',
+              left: 20,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              zIndex: 20,
+              width: 52,
+              height: 52,
+              borderRadius: '50%',
+              background: 'rgba(24, 12, 18, 0.75)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              color: '#FCFBF7',
+              fontSize: '1.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#79213C';
+              e.currentTarget.style.borderColor = '#E8871A';
+              e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(24, 12, 18, 0.75)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+            }}
+          >
+            <i className="fa-solid fa-chevron-left" />
+          </button>
+        )}
+
+        {/* Display Image */}
+        <div
+          style={{
+            maxWidth: '100%',
+            maxHeight: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            transform: `scale(${zoomLevel})`,
+            cursor: zoomLevel > 1 ? 'grab' : 'default',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <img
+            src={currentImage.imgUrl}
+            alt={currentImage.captionEn || 'Gallery Photo'}
+            style={{
+              maxWidth: '86vw',
+              maxHeight: '68vh',
+              objectFit: 'contain',
+              borderRadius: 14,
+              boxShadow: '0 25px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08)',
+              transition: 'opacity 0.25s ease',
+              display: 'block',
+            }}
+          />
+        </div>
+
+        {/* Next Button (>) */}
+        {total > 1 && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); goToNext(); }}
+            title="Next Image (Right Arrow)"
+            style={{
+              position: 'absolute',
+              right: 20,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              zIndex: 20,
+              width: 52,
+              height: 52,
+              borderRadius: '50%',
+              background: 'rgba(24, 12, 18, 0.75)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              color: '#FCFBF7',
+              fontSize: '1.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#79213C';
+              e.currentTarget.style.borderColor = '#E8871A';
+              e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(24, 12, 18, 0.75)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+            }}
+          >
+            <i className="fa-solid fa-chevron-right" />
+          </button>
+        )}
+      </div>
+
+      {/* ── Bottom Section: Captions & Thumbnail Strip ── */}
+      <div
+        style={{
+          background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 70%, transparent 100%)',
+          padding: '12px 20px 18px',
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 10,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Caption Display */}
+        {(currentImage.captionEn || currentImage.captionNe) && (
+          <div
+            style={{
+              background: 'rgba(121, 33, 60, 0.85)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(232, 135, 26, 0.35)',
+              borderRadius: 30,
+              padding: '8px 22px',
+              color: 'white',
+              fontSize: '0.92rem',
+              fontWeight: 500,
+              maxWidth: '85%',
+              textAlign: 'center',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+            }}
+          >
+            {lang === 'en' ? (
+              <span>{currentImage.captionEn || currentImage.captionNe}</span>
+            ) : (
+              <span className="devanagari">{currentImage.captionNe || currentImage.captionEn}</span>
+            )}
+            {currentImage.captionEn && currentImage.captionNe && (
+              <span style={{ fontSize: '0.78rem', opacity: 0.75, borderLeft: '1px solid rgba(255,255,255,0.3)', paddingLeft: 8 }}>
+                {lang === 'en' ? currentImage.captionNe : currentImage.captionEn}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Thumbnail Carousel Strip */}
+        {total > 1 && (
+          <div
+            ref={thumbnailStripRef}
+            style={{
+              display: 'flex',
+              gap: 8,
+              overflowX: 'auto',
+              maxWidth: '100%',
+              padding: '6px 4px',
+              scrollbarWidth: 'none',
+            }}
+          >
+            {images.map((img, i) => {
+              const isSelected = i === index;
+              return (
+                <button
+                  key={img.id || i}
+                  type="button"
+                  onClick={() => {
+                    setZoomLevel(1);
+                    setIndex(i);
+                    onNavigate?.(i);
+                  }}
+                  style={{
+                    width: 54,
+                    height: 54,
+                    borderRadius: 8,
+                    overflow: 'hidden',
+                    border: isSelected ? '2.5px solid #E8871A' : '1.5px solid rgba(255,255,255,0.2)',
+                    opacity: isSelected ? 1 : 0.5,
+                    transform: isSelected ? 'scale(1.08)' : 'scale(1)',
+                    transition: 'all 0.2s',
+                    padding: 0,
+                    background: '#1e293b',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    boxShadow: isSelected ? '0 0 12px rgba(232,135,26,0.5)' : 'none',
+                  }}
+                >
+                  <img
+                    src={img.imgUrl}
+                    alt={img.captionEn || `Thumb ${i}`}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

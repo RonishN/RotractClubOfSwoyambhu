@@ -47,7 +47,11 @@ export default function Login() {
         navigate('/admin');
       }
     } catch (err) {
-      setError(err?.message || 'Incorrect username or password.');
+      if (err.name === 'TypeError' || err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+        setError('Cannot connect to backend server. Please ensure the server is running (`npm run dev`).');
+      } else {
+        setError(err?.message || 'Incorrect username or password.');
+      }
     }
     setLoading(false);
   };

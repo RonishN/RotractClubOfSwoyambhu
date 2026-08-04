@@ -1,26 +1,29 @@
 @charset "UTF-8";
 
-/* --- English Fonts --- */
+/* --- English Fonts (Sentient) --- */
 @font-face {
   font-family: 'EnglishFontRegular';
-  src: url('/fonts/english-Regular.otf') format('opentype');
-  font-weight: normal;
+  src: url('/src/assets/fonts/Sentient-Variable.ttf') format('truetype'),
+       url('/fonts/Sentient-Variable.ttf') format('truetype');
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
   font-family: 'EnglishFontBold';
-  src: url('/fonts/english-Bold.otf') format('opentype');
-  font-weight: bold;
+  src: url('/src/assets/fonts/Sentient-Variable.ttf') format('truetype'),
+       url('/fonts/Sentient-Variable.ttf') format('truetype');
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
   font-family: 'EnglishFontExtrabold';
-  src: url('/fonts/english-Extrabold.otf') format('opentype');
-  font-weight: 800;
+  src: url('/src/assets/fonts/Sentient-Variable.ttf') format('truetype'),
+       url('/fonts/Sentient-Variable.ttf') format('truetype');
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
@@ -28,7 +31,8 @@
 /* --- Nepali Fonts --- */
 @font-face {
   font-family: 'NepaliFont';
-  src: url('/fonts/nepali-Regular.ttf') format('truetype');
+  src: url('/src/assets/fonts/nepali-Regular.ttf') format('truetype'),
+       url('/fonts/nepali-Regular.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -37,7 +41,8 @@
 
 @font-face {
   font-family: 'NepaliFontBold';
-  src: url('/fonts/nepali-Bold.ttf') format('truetype');
+  src: url('/src/assets/fonts/nepali-Bold.ttf') format('truetype'),
+       url('/fonts/nepali-Bold.ttf') format('truetype');
   font-weight: bold;
   font-style: normal;
   font-display: swap;
@@ -244,7 +249,7 @@ header.scrolled .hamburger span {
   background-image: url('../assets/images/heroimage.jpg');
   background-size: cover;
   background-position: center center;
-  background-attachment: fixed;
+  background-repeat: no-repeat;
   overflow: hidden;
 }
 
@@ -3652,4 +3657,25 @@ body.edit-mode-active {
     width: 100% !important;
   }
 }
+
+/* ─── Responsive Gallery Column Layouts ─── */
+.gallery-columns {
+  column-count: 3;
+  column-gap: 24px;
+}
+
+@media (max-width: 1024px) {
+  .gallery-columns {
+    column-count: 2 !important;
+    column-gap: 16px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .gallery-columns {
+    column-count: 1 !important;
+    column-gap: 0 !important;
+  }
+}
+
 

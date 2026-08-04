@@ -40,11 +40,11 @@ export default function GlobalLoading() {
       }}>
         <img src={logo} alt="Rotaract Logo" style={{ width: 80, filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))' }} />
         
-        <div style={{ width: '160px', height: '4px', background: 'rgba(226, 0, 122, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+        <div style={{ width: '160px', height: '4px', background: 'rgba(121, 33, 60, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
           <div style={{
             width: '40%',
             height: '100%',
-            background: 'var(--magenta, #E2007A)',
+            background: 'var(--magenta, #79213C)',
             borderRadius: '4px',
             animation: 'btn-progress 1s ease-in-out infinite'
           }} />
