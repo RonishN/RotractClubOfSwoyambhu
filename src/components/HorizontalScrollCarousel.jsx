@@ -48,7 +48,6 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
 
   // Handle Resize recalculation
   useEffect(() => {
-    if (isMobile) return;
     const updateDimensions = () => {
       if (trackRef.current && containerRef.current) {
         const containerWidth = window.innerWidth;
@@ -57,21 +56,34 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
         setMaxScroll(Math.max(0, overflow));
       }
       if (stickyRef.current) {
-        setInnerHeight(stickyRef.current.offsetHeight);
+        setInnerHeight(stickyRef.current.offsetHeight || stickyRef.current.getBoundingClientRect().height || 500);
       }
     };
-    const timer = setTimeout(updateDimensions, 100);
+    
+    // Recalculate on load, resize, and items update
+    const timer = setTimeout(updateDimensions, 200);
     updateDimensions();
+    
+    // Listen for image loads inside track to recalculate layout dimensions accurately
+    const trackEl = trackRef.current;
+    const images = trackEl ? trackEl.querySelectorAll('img') : [];
+    images.forEach(img => {
+      img.addEventListener('load', updateDimensions);
+    });
+
     window.addEventListener('resize', updateDimensions);
     return () => {
       clearTimeout(timer);
       window.removeEventListener('resize', updateDimensions);
+      images.forEach(img => {
+        img.removeEventListener('load', updateDimensions);
+      });
     };
-  }, [items, isMobile]);
+  }, [items, isMobile]); // Removed innerHeight from dependencies to prevent infinite loop
 
   const speedFactor = 2.0;
   const scrollDistance = maxScroll > 0 ? (maxScroll / speedFactor) * 1.3 : 0;
-  const scrollHeight = !isMobile && maxScroll > 0 ? `calc(${innerHeight || 500}px + ${scrollDistance}px)` : 'auto';
+  const scrollHeight = !isMobile && maxScroll > 0 ? `${(innerHeight || 500) + scrollDistance}px` : 'auto';
 
   useEffect(() => {
     if (isMobile) return;
