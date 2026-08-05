@@ -34,6 +34,23 @@ export default function AdminEdit() {
       .catch(() => navigate('/login'));
   }, [navigate, loadAdminData]);
 
+  // Measure the preview header so main content clears BOTH the AdminBar
+  // and the fixed site navigation header.
+  useEffect(() => {
+    const update = () => {
+      const header = document.querySelector('.admin-mode header');
+      const h = header ? header.offsetHeight : 84;
+      document.documentElement.style.setProperty('--edit-header-height', `${h}px`);
+    };
+    update();
+    const t = setTimeout(update, 120);
+    window.addEventListener('resize', update);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('resize', update);
+    };
+  }, [loading]);
+
   if (loading) {
     return (
       <div className="admin-login-bg">
@@ -69,7 +86,7 @@ export default function AdminEdit() {
             top: var(--admin-bar-height, 90px) !important;
           }
           .admin-mode main {
-            padding-top: var(--admin-bar-height, 90px);
+            padding-top: calc(var(--admin-bar-height, 90px) + var(--edit-header-height, 84px));
           }
         `}</style>
 

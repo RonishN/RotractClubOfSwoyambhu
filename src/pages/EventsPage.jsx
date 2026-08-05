@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Header from '../components/Header';
 import MobileBottomNav from '../components/MobileBottomNav';
 import Footer from '../components/Footer';
 import EventCarousel from '../components/EventCarousel';
 import logo from '../assets/images/logo.png';
-import { getPublicEvents, subscribeToEvents, unsubscribeToEvents } from '../api/client';
+import { getPublicEvents, getPublicContent, subscribeToEvents, unsubscribeToEvents } from '../api/client';
 import { useLang } from '../context/LanguageContext';
 import useFadeIn from '../hooks/useFadeIn';
 
@@ -13,13 +13,14 @@ export default function EventsPage() {
   const { lang } = useLang();
   const [searchParams] = useSearchParams();
   const [events, setEvents] = useState([]);
+  const [highlights, setHighlights] = useState([]);
+  const [albums, setAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL'); // ALL, UPCOMING, COMPLETED
-  const [selectedTag, setSelectedTag] = useState('');
 
   // Subscribe Modal State
   const [isSubscribeModalOpen, setIsSubscribeModalOpen] = useState(false);
@@ -32,7 +33,18 @@ export default function EventsPage() {
   // Lightbox Modal state
   const [lightboxImg, setLightboxImg] = useState(null);
 
-  const ref = useFadeIn(0.15, [loading, selectedCategory, selectedTag, searchTerm]);
+  // Sticky subscribe bar visibility
+  const [showSticky, setShowSticky] = useState(false);
+
+  // Scroll progress bar
+  const [scrollProgress, setScrollProgress] = useState(0);
+
+  // Proud moments slider
+  const [proudIdx, setProudIdx] = useState(0);
+  const [hoverPaused, setHoverPaused] = useState(false);
+  const manualPauseUntil = useRef(0);
+
+  const ref = useFadeIn(0.15, [loading, selectedCategory, searchTerm]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -52,7 +64,47 @@ export default function EventsPage() {
       .then((data) => setEvents(data || []))
       .catch(() => setError('Failed to load events.'))
       .finally(() => setLoading(false));
+
+    getPublicContent()
+      .then((data) => {
+        setHighlights(Array.isArray(data.websiteData?.highlights) ? data.websiteData.highlights : []);
+        setAlbums(Array.isArray(data.websiteData?.albums) ? data.websiteData.albums : []);
+      })
+      .catch(() => setHighlights([]));
   }, [searchParams]);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setShowSticky(window.scrollY > 520);
+      const doc = document.documentElement;
+      const max = doc.scrollHeight - window.innerHeight;
+      setScrollProgress(max > 0 ? (window.scrollY / max) * 100 : 0);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Reset slider position when highlights load
+  useEffect(() => {
+    setProudIdx(0);
+  }, [highlights]);
+
+  // Auto-rotate every 5s, paused while hovering or for 20s after manual nav
+  useEffect(() => {
+    if (highlights.length <= 1) return;
+    const t = setInterval(() => {
+      if (hoverPaused) return;
+      if (Date.now() < manualPauseUntil.current) return;
+      setProudIdx((p) => (p + 1) % highlights.length);
+    }, 5000);
+    return () => clearInterval(t);
+  }, [highlights.length, hoverPaused]);
+
+  const goProud = (i) => {
+    setProudIdx(((i % highlights.length) + highlights.length) % highlights.length);
+    manualPauseUntil.current = Date.now() + 20000;
+  };
 
   const handleSubscribeSubmit = async (e) => {
     e.preventDefault();
@@ -79,88 +131,344 @@ export default function EventsPage() {
     }
   };
 
-  const allTags = Array.from(new Set(events.flatMap((e) => e.tags || [])));
   const todayStr = new Date().toISOString().split('T')[0];
+
+  const formatDay = (dateStr) => {
+    if (!dateStr) return '01';
+    const parts = dateStr.split('-');
+    return parts[2] || '01';
+  };
+
+  const formatMonth = (dateStr) => {
+    if (!dateStr) return 'JAN';
+    const date = new Date(`${dateStr}T12:00:00`);
+    return date.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+  };
 
   const filteredEvents = events.filter((ev) => {
     if (selectedCategory === 'UPCOMING' && ev.eventDate < todayStr) return false;
     if (selectedCategory === 'COMPLETED' && ev.eventDate >= todayStr) return false;
 
-    if (selectedTag && (!ev.tags || !ev.tags.includes(selectedTag))) return false;
-
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
       const titleMatch = ev.title?.toLowerCase().includes(q);
       const descMatch = ev.description?.toLowerCase().includes(q);
-      const tagMatch = ev.tags?.some((t) => t.toLowerCase().includes(q));
-      if (!titleMatch && !descMatch && !tagMatch) return false;
+      const venueMatch = ev.venue?.toLowerCase().includes(q);
+      if (!titleMatch && !descMatch && !venueMatch) return false;
     }
 
     return true;
   });
 
+  // Next upcoming event spotlight
+  const upcoming = events
+    .filter((ev) => ev.eventDate >= todayStr)
+    .sort((a, b) => a.eventDate.localeCompare(b.eventDate));
+  const spotlight = upcoming[0] || null;
+  const daysToGo = spotlight
+    ? Math.max(0, Math.ceil((new Date(spotlight.eventDate) - new Date(todayStr)) / 86400000))
+    : null;
+
+  const marqueeItems = events.slice(0, 10).map((e) => e.title).filter(Boolean);
+
+  // Build a seamless marquee track: repeat titles cyclically until the strip
+  // is always wider than the viewport, then duplicate once so the -50%
+  // translate loop lands on an identical half (A-B-C = A-B-C ...).
+  const marqueeTrack = (() => {
+    if (marqueeItems.length === 0) return [];
+    const set = [];
+    const TARGET = 16;
+    for (let i = 0; set.length < TARGET; i++) {
+      set.push(marqueeItems[i % marqueeItems.length]);
+    }
+    return [...set, ...set];
+  })();
+
   return (
     <>
       <Header />
-      <main ref={ref} className="lokta-texture" style={{ paddingTop: '120px', minHeight: '90vh', paddingBottom: '6rem', paddingLeft: '5%', paddingRight: '5%' }}>
-        
-        {/* Impeccable Hero Section Header with Overline & Warm Contrast */}
-        <div className="section-header fade-in" style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <div style={{
-            fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.22em',
-            color: 'var(--saffron)', marginBottom: '8px'
-          }}>
-            {lang === 'en' ? 'SWOYAMBHU INITIATIVES' : 'स्वयम्भू पहलहरू'}
+      <div className="scroll-progress" style={{ width: `${scrollProgress}%` }} />
+      <main ref={ref} className="events-page" style={{ minHeight: '90vh' }}>
+        {/* ── HERO with integrated search ── */}
+        <section className="events-hero">
+          <div className="events-hero-inner">
+            <span className="events-hero-kicker">
+              {lang === 'en' ? 'Rotaract Club of Swoyambhu' : 'स्वयम्भू रोटर्‍याक्ट क्लब'}
+            </span>
+            <h1 className="events-hero-title">
+              {lang === 'en' ? 'Events & Activities' : <span className="devanagari">कार्यक्रम तथा गतिविधिहरू</span>}
+            </h1>
+            <p className="events-hero-sub">
+              {lang === 'en'
+                ? 'Service, celebration and community — explore everything we have done and what is coming next.'
+                : 'सेवा, उत्सव र समुदाय — हामीले गरेका र आउने हरेक कार्यक्रम यहाँ हेर्नुहोस्।'}
+            </p>
           </div>
-          <h2 className="section-title" style={{ fontSize: 'clamp(2rem, 3.5vw, 2.8rem)', lineHeight: 1.15 }}>
-            {lang === 'en' ? 'Events & Activities' : <span className="devanagari">कार्यक्रम तथा गतिविधिहरू</span>}
+        </section>
+
+        {/* ── Marquee ticker (between hero and featured event) ── */}
+        {loading ? (
+          <div className="marquee marquee-sk" aria-hidden="true">
+            <div className="marquee-sk-track">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="sk brand" style={{ height: 12, width: 180, borderRadius: 999 }} />
+              ))}
+            </div>
+          </div>
+        ) : marqueeTrack.length > 0 && (
+          <div className="marquee" aria-hidden="true">
+            <div className="marquee-track">
+              {marqueeTrack.map((t, i) => (
+                <span key={i} className="marquee-item">
+                  <i className="fa-solid fa-bolt" /> {t}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── SPOTLIGHT: next upcoming event ── */}
+        {loading ? (
+          <section className="spotlight spotlight-sk" aria-busy="true">
+            <div className="spotlight-inner">
+              <div className="spotlight-media">
+                <div className="sk brand" style={{ position: 'absolute', inset: 0, borderRadius: 0 }} />
+              </div>
+              <div className="spotlight-body">
+                <div className="sk brand" style={{ height: 10, width: 130, borderRadius: 999, marginBottom: 18 }} />
+                <div className="sk brand" style={{ height: 30, width: '78%', marginBottom: 16 }} />
+                <div className="sk brand" style={{ height: 14, width: 190, borderRadius: 999, marginBottom: 16 }} />
+                <div className="sk brand" style={{ height: 13, width: '92%', marginBottom: 8 }} />
+                <div className="sk brand" style={{ height: 13, width: '70%', marginBottom: 26 }} />
+                <div className="sk brand" style={{ height: 46, width: 180, borderRadius: 999 }} />
+              </div>
+            </div>
+          </section>
+        ) : spotlight && (
+          <section className="spotlight">
+            <div className="spotlight-inner">
+              <div className="spotlight-media">
+                {spotlight.pictures && spotlight.pictures.length > 0 ? (
+                  <EventCarousel
+                    pictures={spotlight.pictures}
+                    title={spotlight.title}
+                    onImageClick={(img) => setLightboxImg(img)}
+                    height="100%"
+                  />
+                ) : (
+                  <div className="spotlight-empty"><i className="fa-solid fa-calendar-star" /></div>
+                )}
+                <span className="spotlight-badge">
+                  <i className="fa-solid fa-fire" />
+                  {lang === 'en' ? 'Next Up' : 'अर्को कार्यक्रम'}
+                </span>
+              </div>
+
+              <div className="spotlight-body">
+                <span className="spotlight-kicker">
+                  {lang === 'en' ? 'Featured Event' : 'विशेष कार्यक्रम'}
+                </span>
+                <h2>{spotlight.title}</h2>
+
+                <div className="spotlight-date">
+                  <i className="fa-regular fa-calendar" />
+                  <span>{spotlight.eventDate}{spotlight.eventTime ? ` @ ${spotlight.eventTime}` : ''}</span>
+                </div>
+                {spotlight.venue && (
+                  <span className="spotlight-venue"><i className="fa-solid fa-location-dot" /> {spotlight.venue}</span>
+                )}
+
+                {daysToGo !== null && (
+                  <span className="spotlight-countdown">
+                    <i className="fa-regular fa-hourglass-half" />
+                    {lang === 'en'
+                      ? (daysToGo === 0 ? 'Happening Today!' : `${daysToGo} days to go`)
+                      : (daysToGo === 0 ? 'आजै कार्यक्रम छ!' : `${daysToGo} दिन बाँकी`)}
+                  </span>
+                )}
+
+                {spotlight.description && <p>{spotlight.description}</p>}
+
+                {spotlight.registrationLink && (
+                  spotlight.registrationClosed ? (
+                    <span className="register-closed" style={{ marginTop: 22 }}>
+                      <i className="fa-solid fa-lock" /> {lang === 'en' ? 'Registration Closed' : 'दर्ता बन्द भयो'}
+                    </span>
+                  ) : (
+                    <a href={spotlight.registrationLink} target="_blank" rel="noopener noreferrer" className="spotlight-cta">
+                      <span>{lang === 'en' ? 'Register Now' : 'दर्ता गर्नुहोस्'}</span>
+                      <i className="fa-solid fa-arrow-right" />
+                    </a>
+                  )
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── Marquee ticker (between featured event and proud moments) ── */}
+        {loading ? (
+          <div className="marquee marquee-sk marquee-invert" aria-hidden="true">
+            <div className="marquee-sk-track">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="sk brand" style={{ height: 12, width: 180, borderRadius: 999 }} />
+              ))}
+            </div>
+          </div>
+        ) : marqueeTrack.length > 0 && (
+          <div className="marquee marquee-invert" aria-hidden="true">
+            <div className="marquee-track">
+              {marqueeTrack.map((t, i) => (
+                <span key={i} className="marquee-item">
+                  <i className="fa-solid fa-trophy" /> {t}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── PROUD MOMENTS: light cinematic slider ── */}
+        {loading ? (
+          <section className="proud proud-sk" aria-busy="true">
+            <div className="sk brand" style={{ height: '75vh', minHeight: 340, width: '100%' }} />
+          </section>
+        ) : highlights.length > 0 && (
+          <section className="proud">
+              {highlights.length > 1 ? (
+                <div
+                  className="proud-slider"
+                  onMouseEnter={() => setHoverPaused(true)}
+                  onMouseLeave={() => setHoverPaused(false)}
+                >
+                  <div className="proud-viewport">
+                    <div className="proud-head">
+                      <span className="proud-kicker">
+                        <i className="fa-solid fa-trophy" />
+                        {lang === 'en' ? 'Milestones & Accolades' : 'उपलब्धि र सम्मान'}
+                      </span>
+                      <h2 className="proud-title">
+                        {lang === 'en' ? 'Proud Moments' : <span className="devanagari">गौरवका क्षणहरू</span>}
+                      </h2>
+                    </div>
+                    {highlights.map((h, idx) => (
+                      <article
+                        key={h.id}
+                        className={`proud-slide ${idx === proudIdx ? 'active' : ''}`}
+                        aria-hidden={idx !== proudIdx}
+                      >
+                        {h.imageUrl ? (
+                          <img src={h.imageUrl} alt={h.title} loading="lazy" />
+                        ) : (
+                          <div className="proud-slide-empty"><i className="fa-solid fa-medal" /></div>
+                        )}
+                        <div className="proud-slide-shade" />
+                        <div className="proud-slide-caption">
+                          {h.badge && (
+                            <span className="proud-badge">
+                              <i className="fa-solid fa-star" /> {h.badge}
+                            </span>
+                          )}
+                          <h3>{h.title}</h3>
+                          {h.titleNe && <div className="devanagari">{h.titleNe}</div>}
+                          {h.description && <p>{h.description}</p>}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="proud-nav prev"
+                    aria-label="Previous proud moment"
+                    onClick={() => goProud(proudIdx - 1)}
+                  >
+                    <i className="fa-solid fa-chevron-left" />
+                  </button>
+                  <button
+                    type="button"
+                    className="proud-nav next"
+                    aria-label="Next proud moment"
+                    onClick={() => goProud(proudIdx + 1)}
+                  >
+                    <i className="fa-solid fa-chevron-right" />
+                  </button>
+
+                  <div className="proud-dots">
+                    {highlights.map((h, i) => (
+                      <button
+                        key={h.id}
+                        type="button"
+                        aria-label={`Go to proud moment ${i + 1}`}
+                        className={`proud-dot ${i === proudIdx ? 'active' : ''}`}
+                        onClick={() => goProud(i)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <article className="proud-slide proud-single">
+                  <div className="proud-head">
+                    <span className="proud-kicker">
+                      <i className="fa-solid fa-trophy" />
+                      {lang === 'en' ? 'Milestones & Accolades' : 'उपलब्धि र सम्मान'}
+                    </span>
+                    <h2 className="proud-title">
+                      {lang === 'en' ? 'Proud Moments' : <span className="devanagari">गौरवका क्षणहरू</span>}
+                    </h2>
+                  </div>
+                  {highlights[0].imageUrl ? (
+                    <img src={highlights[0].imageUrl} alt={highlights[0].title} loading="lazy" />
+                  ) : (
+                    <div className="proud-slide-empty"><i className="fa-solid fa-medal" /></div>
+                  )}
+                  <div className="proud-slide-shade" />
+                  <div className="proud-slide-caption">
+                    {highlights[0].badge && (
+                      <span className="proud-badge">
+                        <i className="fa-solid fa-star" /> {highlights[0].badge}
+                      </span>
+                    )}
+                    <h3>{highlights[0].title}</h3>
+                    {highlights[0].titleNe && <div className="devanagari">{highlights[0].titleNe}</div>}
+                    {highlights[0].description && <p>{highlights[0].description}</p>}
+                  </div>
+                </article>
+              )}
+          </section>
+        )}
+
+        {/* ── ALL EVENTS ── */}
+        <div className="events-section-head">
+          <span className="events-section-kicker">
+            {lang === 'en' ? 'The Full Lineup' : 'पूरा कार्यक्रम सूची'}
+          </span>
+          <h2 className="events-section-title">
+            {lang === 'en' ? 'All Events' : <span className="devanagari">सबै कार्यक्रमहरू</span>}
           </h2>
-          <p style={{ marginTop: '14px', fontSize: '1.05rem', color: '#475569', maxWidth: 640, margin: '14px auto 0', lineHeight: 1.6 }}>
-            {lang === 'en'
-              ? 'Explore our community projects, youth fellowship programs, and heritage conservation drives.'
-              : 'हाम्रा सामुदायिक प्रयासहरू, युवा फेलोशिप र सांस्कृतिक कार्यक्रमहरू हेर्नुहोस्।'}
-          </p>
+          {!loading && !error && (
+            <span className="events-section-count">
+              {lang === 'en'
+                ? `${filteredEvents.length} event${filteredEvents.length === 1 ? '' : 's'} found`
+                : `${filteredEvents.length} कार्यक्रमहरू फेला परे`}
+            </span>
+          )}
         </div>
 
-        {/* Impeccable Control Console: Glassmorphism Bar */}
-        <div className="fade-in delay-1" style={{
-          maxWidth: 1040, margin: '0 auto 3.5rem', background: '#ffffff',
-          borderRadius: 24, padding: '24px 30px', boxShadow: '0 12px 35px rgba(28, 43, 76, 0.06)',
-          border: '1px solid rgba(226, 232, 240, 0.9)'
-        }}>
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: allTags.length > 0 ? 18 : 0 }}>
-            {/* Search Bar */}
-            <div style={{ flex: '1 1 280px', position: 'relative' }}>
+        {/* ── Filter toolbar (Show pills + search) ── */}
+        {!loading && (
+          <div className="events-toolbar">
+            <div className="events-toolbar-search">
+              <i className="fa-solid fa-magnifying-glass" />
               <input
                 type="text"
                 placeholder={lang === 'en' ? 'Search events...' : 'कार्यक्रम खोज्नुहोस्...'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                style={{
-                  width: '100%', padding: '12px 18px 12px 42px', borderRadius: 14,
-                  border: '1.5px solid #e2e8f0', background: '#f8fafc',
-                  fontSize: '0.9rem', color: 'var(--navy)', outline: 'none',
-                  transition: 'border-color 0.2s, box-shadow 0.2s'
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = 'var(--saffron)';
-                  e.target.style.boxShadow = '0 0 0 3px rgba(255, 138, 0, 0.12)';
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = '#e2e8f0';
-                  e.target.style.boxShadow = 'none';
-                }}
               />
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.2" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }}>
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
             </div>
-
-            {/* Category Filter & Subscribe Button Group */}
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              {/* Category Segmented Control */}
-              <div style={{ display: 'flex', background: '#f1f5f9', padding: 4, borderRadius: 16, gap: 4 }}>
+            <div className="events-toolbar-group">
+              <span className="toolbar-label">{lang === 'en' ? 'Show' : 'देखाउनुहोस्'}</span>
+              <div className="toolbar-pills">
                 {[
                   { id: 'ALL', en: 'All', ne: 'सबै' },
                   { id: 'UPCOMING', en: 'Upcoming', ne: 'आगामी' },
@@ -168,239 +476,124 @@ export default function EventsPage() {
                 ].map((cat) => (
                   <button
                     key={cat.id}
+                    type="button"
+                    className={`pill ${selectedCategory === cat.id ? 'active' : ''}`}
                     onClick={() => setSelectedCategory(cat.id)}
-                    style={{
-                      padding: '8px 16px', borderRadius: 12, fontSize: '0.84rem', fontWeight: 700,
-                      border: 'none',
-                      background: selectedCategory === cat.id ? '#ffffff' : 'transparent',
-                      color: selectedCategory === cat.id ? 'var(--navy)' : '#64748b',
-                      cursor: 'pointer',
-                      boxShadow: selectedCategory === cat.id ? '0 3px 8px rgba(0,0,0,0.06)' : 'none',
-                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
-                    }}
                   >
                     {lang === 'en' ? cat.en : cat.ne}
                   </button>
                 ))}
               </div>
-
-              {/* Subscribe Button nicely aligned in the console bar */}
-              <button
-                onClick={() => {
-                  setSubMsg('');
-                  setSubErr('');
-                  setIsUnsubscribing(false);
-                  setIsSubscribeModalOpen(true);
-                }}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 8,
-                  padding: '9px 18px', borderRadius: 14, fontSize: '0.84rem', fontWeight: 700,
-                  background: '#79213C',
-                  color: '#ffffff', border: 'none', cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(121, 33, 60, 0.3)', transition: 'all 0.2s ease',
-                  whiteSpace: 'nowrap'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-              >
-                <i className="fa-solid fa-bell" style={{ fontSize: '0.9rem' }}></i>
-                <span>{lang === 'en' ? 'Subscribe' : 'सूचना पाउनुहोस्'}</span>
-              </button>
             </div>
           </div>
+        )}
 
-          {/* Tags Bar */}
-          {allTags.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, paddingTop: 16, borderTop: '1px solid #f1f5f9' }}>
-              <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: 6 }}>
-                {lang === 'en' ? 'Filter Tags:' : 'ट्यागहरू:'}
-              </span>
-              <button
-                onClick={() => setSelectedTag('')}
-                style={{
-                  padding: '5px 14px', borderRadius: 20, fontSize: '0.76rem', fontWeight: 700, border: 'none', cursor: 'pointer',
-                  background: selectedTag === '' ? 'var(--navy)' : '#f8fafc',
-                  color: selectedTag === '' ? '#ffffff' : '#64748b',
-                  transition: 'all 0.2s'
-                }}
-              >
-                All
-              </button>
-              {allTags.map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => setSelectedTag(tag === selectedTag ? '' : tag)}
-                  style={{
-                    padding: '5px 14px', borderRadius: 20, fontSize: '0.76rem', fontWeight: 700, border: 'none', cursor: 'pointer',
-                    background: selectedTag === tag ? 'var(--saffron)' : '#f8fafc',
-                    color: selectedTag === tag ? '#ffffff' : '#64748b',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  #{tag}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Content Section - Impeccable Horizontal Rectangle Banner Cards */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '5rem 0', color: 'var(--navy)' }}>
-            <span className="admin-spinner" style={{ borderTopColor: 'var(--saffron)' }} />
-            <p style={{ marginTop: 16, fontWeight: 600, color: '#64748b' }}>Loading events...</p>
+          <div className="events-list" aria-busy="true" aria-label="Loading events">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="event-row" style={{ animation: 'none' }}>
+                <div className="event-row-media">
+                  <div className="sk brand" style={{ position: 'absolute', inset: 0, borderRadius: 0 }} />
+                </div>
+                <div className="event-row-body">
+                  <div className="sk brand" style={{ height: 12, width: 190, marginBottom: 18, borderRadius: 999 }} />
+                  <div className="sk brand" style={{ height: 26, width: '48%', marginBottom: 14 }} />
+                  <div className="sk brand" style={{ height: 13, width: '94%', marginBottom: 8 }} />
+                  <div className="sk brand" style={{ height: 13, width: '58%', marginBottom: 22 }} />
+                  <div className="sk brand" style={{ height: 40, width: 160, borderRadius: 999 }} />
+                </div>
+              </div>
+            ))}
           </div>
         ) : error ? (
-          <div style={{ textAlign: 'center', padding: '2.5rem', background: '#fef2f2', color: '#991b1b', borderRadius: 20, maxWidth: 600, margin: '0 auto', border: '1px solid #fca5a5' }}>
-            {error}
-          </div>
+          <div className="empty-state">{error}</div>
         ) : filteredEvents.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '5rem 2rem', background: '#ffffff', borderRadius: 24, boxShadow: '0 10px 30px rgba(0,0,0,0.03)', maxWidth: 600, margin: '0 auto', border: '1px solid #f1f5f9' }}>
-            <div style={{ marginBottom: 14 }}>
-              <i className="fa-regular fa-calendar-xmark" style={{ fontSize: '3rem', color: '#79213C' }}></i>
-            </div>
-            <h3 className="serif" style={{ color: 'var(--navy)', marginBottom: 8, fontSize: '1.4rem' }}>No events found</h3>
-            <p style={{ color: '#64748b', fontSize: '0.95rem' }}>Try adjusting your search query or active filter tags.</p>
+          <div className="empty-state">
+            <i className="fa-regular fa-calendar-xmark" />
+            <h3>{lang === 'en' ? 'No events found' : 'कुनै कार्यक्रम फेला परेन'}</h3>
+            <p>{lang === 'en' ? 'Try adjusting your search query or filter.' : 'आफ्नो खोजी वा फिल्टर समायोजन गर्नुहोस्।'}</p>
           </div>
         ) : (
-          <div style={{
-            display: 'flex', flexDirection: 'column', gap: '32px',
-            maxWidth: 1040, margin: '0 auto'
-          }}>
-            {filteredEvents.map((ev) => {
+          <div className="events-list">
+            {filteredEvents.map((ev, idx) => {
               const isPast = ev.eventDate < todayStr;
+              const linkedAlbum = albums.find(a => a.eventId === ev.id);
               return (
-                <article
-                  key={ev.id}
-                  className="event-public-card"
-                >
-                  {/* Left Column: Landscape Image Carousel Container */}
-                  <div className="event-card-media">
-                    <EventCarousel pictures={ev.pictures} title={ev.title} onImageClick={(img) => setLightboxImg(img)} height="100%" />
+                <article key={ev.id} className="event-row" style={{ animationDelay: `${(idx % 2) * 80}ms` }}>
+                  {/* Media */}
+                  <div className="event-row-media">
+                    {ev.pictures && ev.pictures.length > 0 ? (
+                      <EventCarousel pictures={ev.pictures} title={ev.title} onImageClick={(img) => setLightboxImg(img)} height="100%" />
+                    ) : (
+                      <div className="event-row-empty"><i className="fa-solid fa-calendar-days" /></div>
+                    )}
+                    <div className={`event-date-badge ${isPast ? 'past' : ''}`}>
+                      <span className="event-date-badge-day">{formatDay(ev.eventDate)}</span>
+                      <span className="event-date-badge-month">{formatMonth(ev.eventDate)}</span>
+                    </div>
+                    <span className={`event-status ${isPast ? 'past' : ''}`}>
+                      {isPast ? (lang === 'en' ? 'Completed' : 'सम्पन्न') : (lang === 'en' ? 'Upcoming' : 'आगामी')}
+                    </span>
                   </div>
 
-                  {/* Right Column: Content Section */}
-                  <div className="event-card-body">
-                    <div>
-                      {/* Status Pill & Date Badge Row */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-                        <span style={{
-                          padding: '5px 14px', borderRadius: 20, fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase',
-                          background: isPast ? '#f1f5f9' : 'rgba(121, 33, 60, 0.1)', color: isPast ? '#475569' : '#79213C'
-                        }}>
-                          {isPast ? (lang === 'en' ? 'COMPLETED' : 'सम्पन्न') : (lang === 'en' ? 'UPCOMING' : 'आगामी')}
-                        </span>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: '#64748b', fontSize: '0.88rem', fontWeight: 600 }}>
-                          <i className="fa-regular fa-calendar" style={{ color: '#79213C' }}></i>
-                          <span>{ev.eventDate} {ev.eventTime ? `@ ${ev.eventTime}` : ''}</span>
-                        </div>
-                      </div>
-
-                      {/* Title */}
-                      <h3 style={{ fontSize: '1.55rem', color: 'var(--navy)', marginBottom: 14, lineHeight: 1.25, fontWeight: 700 }} className="serif">
-                        {ev.title}
-                      </h3>
-
-                      {/* Description */}
-                      {ev.description && (
-                        <p style={{ color: '#475569', fontSize: '0.95rem', lineHeight: 1.68, marginBottom: 20 }}>
-                          {ev.description}
-                        </p>
-                      )}
-
-                      {/* Attendees */}
-                      {ev.attendees && (
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--navy)', fontSize: '0.84rem', background: '#f8fafc', padding: '8px 14px', borderRadius: 10, marginBottom: 18, border: '1px solid #f1f5f9' }}>
-                          <i className="fa-solid fa-users" style={{ color: '#79213C' }}></i>
-                          <span>Attendees / Guests: <strong>{ev.attendees}</strong></span>
-                        </div>
-                      )}
-
-                      {/* Collaborators */}
-                      {ev.collaborators && ev.collaborators.length > 0 ? (
-                        <div style={{ background: 'rgba(121, 33, 60, 0.04)', padding: '12px 16px', borderRadius: 14, border: '1px solid rgba(121, 33, 60, 0.12)', marginBottom: 20 }}>
-                          <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#79213C', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <i className="fa-solid fa-handshake"></i> {lang === 'en' ? 'In Collaboration With' : 'सहकार्यकर्ता संस्थाहरू'}
-                          </div>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                            {ev.collaborators.map((c, cIdx) => (
-                              <div key={cIdx} style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#ffffff', padding: '6px 14px', borderRadius: 20, border: '1px solid rgba(121, 33, 60, 0.2)', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                                {c.logoUrl ? (
-                                  <img src={c.logoUrl} alt={c.name} style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'contain' }} />
-                                ) : (
-                                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#79213C' }}></span>
-                                )}
-                                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--navy)' }}>{c.name}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--navy)', fontWeight: 700, background: '#f8fafc', padding: '6px 14px', borderRadius: 20, border: '1px solid #e2e8f0', marginBottom: 20 }}>
-                          <img src={logo} alt="Swoyambhu Logo" style={{ width: 22, height: 22, objectFit: 'contain', borderRadius: '50%' }} />
-                          <span>Rotaract Club of Swoyambhu</span>
-                        </div>
-                      )}
+                  {/* Body */}
+                  <div className="event-row-body">
+                    <div className="event-row-meta">
+                      <span><i className="fa-regular fa-calendar" /> {ev.eventDate}{ev.eventTime ? ` • ${ev.eventTime}` : ''}</span>
+                      {ev.venue && <span><i className="fa-solid fa-location-dot" /> {ev.venue}</span>}
                     </div>
 
-                    {/* Bottom Footer: Tags on Left, Register Button on Bottom Right */}
-                    <div style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14,
-                      paddingTop: 18, borderTop: '1px solid #f1f5f9', marginTop: 12
-                    }}>
-                      {/* Tags */}
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                        {ev.tags && ev.tags.map((tag) => (
-                          <span key={tag} style={{
-                            padding: '5px 13px', background: '#f1f5f9', color: 'var(--navy-light)',
-                            borderRadius: 16, fontSize: '0.78rem', fontWeight: 600
-                          }}>
-                            #{tag}
-                          </span>
-                        ))}
-                      </div>
+                    <h3 className="event-row-title">{ev.title}</h3>
 
-                      {/* Register Button aligned to Bottom Right */}
-                      {ev.registrationLink && (
-                        <div style={{ marginLeft: 'auto' }}>
-                          {ev.registrationClosed ? (
-                            <span style={{
-                              display: 'inline-flex', alignItems: 'center', gap: 6,
-                              padding: '8px 18px', borderRadius: 12, fontSize: '0.8rem', fontWeight: 700,
-                              background: '#fef2f2', color: '#991b1b', border: '1px solid #fca5a5'
-                            }}>
-                              <i className="fa-solid fa-lock" style={{ marginRight: 4 }}></i> {lang === 'en' ? 'Registration Closed' : 'दर्ता बन्द भयो'}
-                            </span>
-                          ) : (
-                            <a
-                              href={ev.registrationLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                display: 'inline-flex', alignItems: 'center', gap: 8,
-                                padding: '11px 24px', borderRadius: 12, fontSize: '0.88rem', fontWeight: 700,
-                                background: '#79213C',
-                                color: '#ffffff', textDecoration: 'none',
-                                boxShadow: '0 4px 14px rgba(121, 33, 60, 0.3)', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                letterSpacing: '0.02em'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = '#561427';
-                                e.currentTarget.style.transform = 'translateY(-2px)';
-                                e.currentTarget.style.boxShadow = '0 8px 22px rgba(121, 33, 60, 0.45)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = '#79213C';
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = '0 4px 14px rgba(121, 33, 60, 0.3)';
-                              }}
-                            >
-                              <span>{lang === 'en' ? 'Register Now' : 'दर्ता गर्नुहोस्'}</span>
-                              <i className="fa-solid fa-arrow-right" style={{ fontSize: '0.85rem' }}></i>
-                            </a>
-                          )}
+                    {ev.description && <p className="event-row-desc">{ev.description}</p>}
+
+                    {ev.collaborators && ev.collaborators.length > 0 ? (
+                      <div className="collab-block" style={{ marginTop: 4 }}>
+                        <div className="collab-label">
+                          <i className="fa-solid fa-handshake" /> {lang === 'en' ? 'In Collaboration With' : 'सहकार्यकर्ता संस्थाहरू'}
                         </div>
+                        <div className="collab-chips">
+                          {ev.collaborators.map((c, cIdx) => (
+                            <div key={cIdx} className="chip">
+                              {c.logoUrl ? (
+                                <img src={c.logoUrl} alt={c.name} />
+                              ) : (
+                                <i className="fa-solid fa-building" style={{ fontSize: '0.72rem' }} />
+                              )}
+                              <span>{c.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="chip" style={{ margin: '6px 0 0' }}>
+                        <img src={logo} alt="Swoyambhu Logo" />
+                        <span>{lang === 'en' ? 'Rotaract Club of Swoyambhu' : 'स्वयम्भू रोटर्‍याक्ट क्लब'}</span>
+                      </div>
+                    )}
+
+                    {/* Footer */}
+                    <div className="event-row-foot">
+                      {linkedAlbum ? (
+                        <a href={`/gallery/album/${linkedAlbum.id}`} className="photos-link">
+                          <i className="fa-solid fa-images" />
+                          {lang === 'en' ? 'View Photos' : 'तस्बिर हेर्नुहोस्'}
+                        </a>
+                      ) : (
+                        <span className="photos-link disabled"><i className="fa-solid fa-link" /></span>
+                      )}
+
+                      {ev.registrationLink && (
+                        ev.registrationClosed ? (
+                          <span className="register-closed">
+                            <i className="fa-solid fa-lock" /> {lang === 'en' ? 'Registration Closed' : 'दर्ता बन्द भयो'}
+                          </span>
+                        ) : (
+                          <a href={ev.registrationLink} target="_blank" rel="noopener noreferrer" className="register-btn">
+                            <span>{lang === 'en' ? 'Register Now' : 'दर्ता गर्नुहोस्'}</span>
+                            <i className="fa-solid fa-arrow-right" />
+                          </a>
+                        )
                       )}
                     </div>
                   </div>
@@ -411,30 +604,41 @@ export default function EventsPage() {
         )}
       </main>
 
+      {/* Sticky subscribe bar */}
+      <button
+        type="button"
+        className={`sticky-subscribe ${showSticky ? 'visible' : ''}`}
+        onClick={() => {
+          setSubMsg('');
+          setSubErr('');
+          setIsUnsubscribing(false);
+          setIsSubscribeModalOpen(true);
+        }}
+      >
+        <i className="fa-solid fa-bell" />
+        {lang === 'en' ? 'Get Event Updates' : 'सूचना पाउनुहोस्'}
+      </button>
+
       {/* Lightbox Modal */}
       {lightboxImg && (
         <div
           onClick={() => setLightboxImg(null)}
-          style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(10, 16, 36, 0.94)', backdropFilter: 'blur(10px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 9999, padding: 20, cursor: 'zoom-out'
-          }}
+          className="subscribe-overlay"
+          style={{ cursor: 'zoom-out', zIndex: 9999 }}
         >
           <img
             src={lightboxImg}
             alt="Full size view"
-            style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 12, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)' }}
+            style={{
+              maxWidth: '90vw', maxHeight: '90vh',
+              borderRadius: 16, boxShadow: '0 25px 60px rgba(0,0,0,0.5)'
+            }}
           />
           <button
             type="button"
             onClick={() => setLightboxImg(null)}
-            style={{
-              position: 'absolute', top: 24, right: 28, background: 'none',
-              border: 'none', color: '#ffffff', fontSize: '2rem', cursor: 'pointer',
-              opacity: 0.85, zIndex: 10
-            }}
+            className="modal-close"
+            style={{ position: 'absolute', top: 24, right: 28, width: 38, height: 38, fontSize: '1rem' }}
           >
             <i className="fa-solid fa-xmark"></i>
           </button>
@@ -445,98 +649,62 @@ export default function EventsPage() {
       {isSubscribeModalOpen && (
         <div
           onClick={() => setIsSubscribeModalOpen(false)}
-          style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(10, 16, 36, 0.75)', backdropFilter: 'blur(6px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 10000, padding: 20
-          }}
+          className="subscribe-overlay"
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: '#ffffff', borderRadius: 24, padding: '36px 32px',
-              maxWidth: 480, width: '100%', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-              position: 'relative', border: '1px solid #e2e8f0'
-            }}
-          >
+          <div onClick={(e) => e.stopPropagation()} className="subscribe-modal">
             <button
               type="button"
               onClick={() => setIsSubscribeModalOpen(false)}
-              style={{
-                position: 'absolute', top: 18, right: 20, background: '#f1f5f9',
-                border: 'none', borderRadius: '50%', width: 32, height: 32,
-                fontSize: '0.9rem', color: '#64748b', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-              }}
+              className="modal-close"
             >
               <i className="fa-solid fa-xmark"></i>
             </button>
 
-            <div style={{ textAlign: 'center', marginBottom: 24 }}>
-              <div style={{ marginBottom: 12 }}>
-                {isUnsubscribing ? (
-                  <i className="fa-solid fa-bell-slash" style={{ fontSize: '2.5rem', color: '#ef4444' }}></i>
-                ) : (
-                  <i className="fa-solid fa-envelope-open-text" style={{ fontSize: '2.5rem', color: '#79213C' }}></i>
-                )}
-              </div>
-              <h3 className="serif" style={{ fontSize: '1.5rem', color: 'var(--navy)', margin: '0 0 8px' }}>
-                {isUnsubscribing
-                  ? (lang === 'en' ? 'Unsubscribe from Events' : 'सूचनाहरू बन्द गर्नुहोस्')
-                  : (lang === 'en' ? 'Subscribe to Upcoming Events' : 'आगामी कार्यक्रमहरूको सूचना पाउनुहोस्')}
-              </h3>
-              <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0, lineHeight: 1.5 }}>
-                {isUnsubscribing
-                  ? (lang === 'en' ? 'Enter your email address to stop receiving event notifications.' : 'सूचनाहरू रोक्न आफ्नो इमेल ठेगाना प्रविष्ट गर्नुहोस्।')
-                  : (lang === 'en' ? 'Enter your email address to automatically receive notifications whenever a new event or program is announced.' : 'नयाँ कार्यक्रम वा सूचना प्रकाशित हुँदा आफ्नो इमेलमा तुरुन्त जानकारी प्राप्त गर्नुहोस्।')}
-              </p>
+            <div className="modal-icon">
+              {isUnsubscribing ? (
+                <i className="fa-solid fa-bell-slash"></i>
+              ) : (
+                <i className="fa-solid fa-envelope-open-text"></i>
+              )}
             </div>
 
+            <h3>
+              {isUnsubscribing
+                ? (lang === 'en' ? 'Unsubscribe from Events' : 'सूचनाहरू बन्द गर्नुहोस्')
+                : (lang === 'en' ? 'Subscribe to Upcoming Events' : 'आगामी कार्यक्रमहरूको सूचना पाउनुहोस्')}
+            </h3>
+            <p style={{ marginBottom: 22 }}>
+              {isUnsubscribing
+                ? (lang === 'en' ? 'Enter your email address to stop receiving event notifications.' : 'सूचनाहरू रोक्न आफ्नो इमेल ठेगाना प्रविष्ट गर्नुहोस्।')
+                : (lang === 'en' ? 'Enter your email address to automatically receive notifications whenever a new event or program is announced.' : 'नयाँ कार्यक्रम वा सूचना प्रकाशित हुँदा आफ्नो इमेलमा तुरुन्त जानकारी प्राप्त गर्नुहोस्।')}
+            </p>
+
             {subMsg && (
-              <div style={{ background: 'rgba(121, 33, 60, 0.08)', color: '#79213C', border: '1px solid rgba(121, 33, 60, 0.2)', padding: '12px 16px', borderRadius: 12, fontSize: '0.88rem', fontWeight: 600, marginBottom: 16, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <div className="alert success" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 <i className="fa-solid fa-circle-check"></i>
                 <span>{subMsg}</span>
               </div>
             )}
 
-            {subErr && (
-              <div style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fca5a5', padding: '12px 16px', borderRadius: 12, fontSize: '0.88rem', fontWeight: 600, marginBottom: 16, textAlign: 'center' }}>
-                {subErr}
-              </div>
-            )}
+            {subErr && <div className="alert error">{subErr}</div>}
 
-            <form onSubmit={handleSubscribeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <form onSubmit={handleSubscribeSubmit}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--navy)', marginBottom: 6 }}>
-                  {lang === 'en' ? 'Your Email Address' : 'आफ्नो इमेल ठेगाना'}
-                </label>
+                <label>{lang === 'en' ? 'Your Email Address' : 'आफ्नो इमेल ठेगाना'}</label>
                 <input
                   type="email"
                   placeholder="e.g. yourname@example.com"
                   value={subEmail}
                   onChange={(e) => setSubEmail(e.target.value)}
                   required
-                  style={{
-                    width: '100%', padding: '12px 16px', borderRadius: 12,
-                    border: '1.5px solid #cbd5e1', fontSize: '0.92rem', color: '#0f172a', outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#79213C'}
-                  onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={subscribing}
-                style={{
-                  padding: '13px 24px', borderRadius: 12, border: 'none',
-                  background: isUnsubscribing
-                    ? '#ef4444'
-                    : '#79213C',
-                  color: '#ffffff', fontWeight: 700, fontSize: '0.95rem', cursor: subscribing ? 'not-allowed' : 'pointer',
-                  boxShadow: isUnsubscribing ? '0 4px 14px rgba(239, 68, 68, 0.35)' : '0 4px 14px rgba(121, 33, 60, 0.35)', transition: 'all 0.2s', marginTop: 6
-                }}
+                className="submit-btn"
+                style={{ cursor: subscribing ? 'not-allowed' : 'pointer', opacity: subscribing ? 0.7 : 1 }}
               >
                 {subscribing
                   ? (isUnsubscribing ? 'Unsubscribing...' : 'Subscribing...')
@@ -544,19 +712,17 @@ export default function EventsPage() {
               </button>
             </form>
 
-            <div style={{ textCenter: 'center', textAlign: 'center', marginTop: 18 }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setSubMsg('');
-                  setSubErr('');
-                  setIsUnsubscribing(!isUnsubscribing);
-                }}
-                style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}
-              >
-                {isUnsubscribing ? 'Want to subscribe instead?' : 'Already subscribed? Unsubscribe here'}
-              </button>
-            </div>
+            <button
+              type="button"
+              className="modal-switch"
+              onClick={() => {
+                setSubMsg('');
+                setSubErr('');
+                setIsUnsubscribing(!isUnsubscribing);
+              }}
+            >
+              {isUnsubscribing ? 'Want to subscribe instead?' : 'Already subscribed? Unsubscribe here'}
+            </button>
           </div>
         </div>
       )}

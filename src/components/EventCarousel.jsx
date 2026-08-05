@@ -6,7 +6,7 @@ export default function EventCarousel({ pictures = [], title = '', onImageClick,
   if (!pictures || pictures.length === 0) {
     return (
       <div style={{
-        height: height || '100%', minHeight: 220, background: '#f1f5f9', display: 'flex', alignItems: 'center',
+        height: height || '100%', minHeight: 180, background: '#f1f5f9', display: 'flex', alignItems: 'center',
         justifyContent: 'center', color: '#94a3b8', fontSize: '0.9rem'
       }}>
         No images available
@@ -25,7 +25,7 @@ export default function EventCarousel({ pictures = [], title = '', onImageClick,
   };
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: height || '100%', minHeight: 220, overflow: 'hidden', background: '#0f172a' }}>
+    <div style={{ position: 'relative', width: '100%', height: height || '100%', minHeight: 180, overflow: 'hidden', background: '#0f172a' }}>
       <img
         src={pictures[currentIndex]}
         alt={`${title} - Photo ${currentIndex + 1}`}

@@ -152,7 +152,7 @@ export default function GalleryLightbox({
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(10, 16, 31, 0.96)',
+        backgroundColor: 'rgba(38, 9, 20, 0.97)',
         backdropFilter: 'blur(12px)',
         zIndex: 99999,
         display: 'flex',
@@ -173,7 +173,7 @@ export default function GalleryLightbox({
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '16px 24px',
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)',
+          background: 'linear-gradient(to bottom, rgba(38, 9, 20, 0.85) 0%, transparent 100%)',
           zIndex: 10,
           flexWrap: 'wrap',
           gap: 12,
@@ -184,8 +184,8 @@ export default function GalleryLightbox({
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div
             style={{
-              background: 'rgba(121, 33, 60, 0.4)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
+              background: 'rgba(158, 31, 66, 0.55)',
+              border: '1px solid rgba(232, 180, 58, 0.35)',
               color: '#FCFBF7',
               borderRadius: 30,
               padding: '6px 14px',
@@ -197,7 +197,7 @@ export default function GalleryLightbox({
               backdropFilter: 'blur(8px)',
             }}
           >
-            <i className="fa-solid fa-image" style={{ color: '#E8871A', fontSize: '0.85rem' }} />
+            <i className="fa-solid fa-image" style={{ color: '#E8B43A', fontSize: '0.85rem' }} />
             <span>{index + 1} / {total}</span>
           </div>
           <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', display: 'none' }} className="desktop-only">
@@ -236,7 +236,7 @@ export default function GalleryLightbox({
               onClick={handleResetZoom}
               title="Reset Zoom (0)"
               style={{
-                background: 'none', border: 'none', color: '#E8871A', padding: '4px 8px',
+                background: 'none', border: 'none', color: '#E8B43A', padding: '4px 8px',
                 cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700, minWidth: 44,
               }}
             >
@@ -320,19 +320,19 @@ export default function GalleryLightbox({
             onClick={onClose}
             title="Close Lightbox (Esc)"
             style={{
-              background: 'rgba(121,33,60,0.6)',
-              border: '1px solid rgba(255,255,255,0.2)',
+              background: 'rgba(158,31,66,0.85)',
+              border: '1px solid rgba(255,255,255,0.25)',
               color: 'white',
               width: 36, height: 36, borderRadius: '50%',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', transition: 'all 0.2s',
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.background = '#79213C';
+              e.currentTarget.style.background = '#9E1F42';
               e.currentTarget.style.transform = 'scale(1.08)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.background = 'rgba(121,33,60,0.6)';
+              e.currentTarget.style.background = 'rgba(158,31,66,0.85)';
               e.currentTarget.style.transform = 'scale(1)';
             }}
           >
@@ -371,9 +371,9 @@ export default function GalleryLightbox({
               width: 52,
               height: 52,
               borderRadius: '50%',
-              background: 'rgba(24, 12, 18, 0.75)',
+              background: 'rgba(61, 12, 27, 0.8)',
               backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
+              border: '1px solid rgba(232, 180, 58, 0.35)',
               color: '#FCFBF7',
               fontSize: '1.25rem',
               display: 'flex',
@@ -384,13 +384,13 @@ export default function GalleryLightbox({
               transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#79213C';
-              e.currentTarget.style.borderColor = '#E8871A';
+              e.currentTarget.style.background = '#9E1F42';
+              e.currentTarget.style.borderColor = '#E8B43A';
               e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(24, 12, 18, 0.75)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.background = 'rgba(61, 12, 27, 0.8)';
+              e.currentTarget.style.borderColor = 'rgba(232, 180, 58, 0.35)';
               e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
             }}
           >
@@ -442,9 +442,9 @@ export default function GalleryLightbox({
               width: 52,
               height: 52,
               borderRadius: '50%',
-              background: 'rgba(24, 12, 18, 0.75)',
+              background: 'rgba(61, 12, 27, 0.8)',
               backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
+              border: '1px solid rgba(232, 180, 58, 0.35)',
               color: '#FCFBF7',
               fontSize: '1.25rem',
               display: 'flex',
@@ -455,13 +455,13 @@ export default function GalleryLightbox({
               transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#79213C';
-              e.currentTarget.style.borderColor = '#E8871A';
+              e.currentTarget.style.background = '#9E1F42';
+              e.currentTarget.style.borderColor = '#E8B43A';
               e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(24, 12, 18, 0.75)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.background = 'rgba(61, 12, 27, 0.8)';
+              e.currentTarget.style.borderColor = 'rgba(232, 180, 58, 0.35)';
               e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
             }}
           >
@@ -473,7 +473,7 @@ export default function GalleryLightbox({
       {/* ── Bottom Section: Captions & Thumbnail Strip ── */}
       <div
         style={{
-          background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 70%, transparent 100%)',
+          background: 'linear-gradient(to top, rgba(38,9,20,0.9) 0%, rgba(38,9,20,0.4) 70%, transparent 100%)',
           padding: '12px 20px 18px',
           zIndex: 10,
           display: 'flex',
@@ -487,9 +487,9 @@ export default function GalleryLightbox({
         {(currentImage.captionEn || currentImage.captionNe) && (
           <div
             style={{
-              background: 'rgba(121, 33, 60, 0.85)',
+              background: 'rgba(158, 31, 66, 0.88)',
               backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(232, 135, 26, 0.35)',
+              border: '1px solid rgba(232, 180, 58, 0.4)',
               borderRadius: 30,
               padding: '8px 22px',
               color: 'white',
@@ -547,15 +547,15 @@ export default function GalleryLightbox({
                     height: 54,
                     borderRadius: 8,
                     overflow: 'hidden',
-                    border: isSelected ? '2.5px solid #E8871A' : '1.5px solid rgba(255,255,255,0.2)',
+                    border: isSelected ? '2.5px solid #E8B43A' : '1.5px solid rgba(255,255,255,0.2)',
                     opacity: isSelected ? 1 : 0.5,
                     transform: isSelected ? 'scale(1.08)' : 'scale(1)',
                     transition: 'all 0.2s',
                     padding: 0,
-                    background: '#1e293b',
+                    background: '#2A0915',
                     cursor: 'pointer',
                     flexShrink: 0,
-                    boxShadow: isSelected ? '0 0 12px rgba(232,135,26,0.5)' : 'none',
+                    boxShadow: isSelected ? '0 0 12px rgba(232,180,58,0.55)' : 'none',
                   }}
                 >
                   <img

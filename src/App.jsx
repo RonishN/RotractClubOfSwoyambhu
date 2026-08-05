@@ -7,10 +7,10 @@ import Admin from './pages/Admin';
 import AdminSettings from './pages/AdminSettings';
 import ManageAdmins from './pages/ManageAdmins';
 import AuditLogs from './pages/AuditLogs';
-import AdminErrorLogs from './pages/AdminErrorLogs';
 import AdminEdit from './pages/AdminEdit';
 import AdminEvents from './pages/AdminEvents';
 import GalleryPage from './pages/GalleryPage';
+import GalleryAlbumPage from './pages/GalleryAlbumPage';
 import GalleryEdit from './pages/GalleryEdit';
 import EventsPage from './pages/EventsPage';
 import './styles/index.css';
@@ -26,6 +26,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/gallery" element={<GalleryPage />} />
+          <Route path="/gallery/album/:albumId" element={<GalleryAlbumPage />} />
           <Route path="/events" element={<EventsPage />} />
           <Route path="/login" element={<Login />} />
           
@@ -35,11 +36,11 @@ export default function App() {
             <Route path="events" element={<AdminEvents />} />
             <Route path="manage" element={<ManageAdmins />} />
             <Route path="logs" element={<AuditLogs />} />
-            <Route path="error-logs" element={<AdminErrorLogs />} />
           </Route>
           
           <Route path="/admin/edit" element={<AdminEdit />} />
           <Route path="/admin/edit/gallery" element={<GalleryEdit />} />
+          <Route path="/admin/edit/gallery/album/:albumId" element={<GalleryEdit />} />
         </Routes>
         <CookieConsent />
       </BrowserRouter>

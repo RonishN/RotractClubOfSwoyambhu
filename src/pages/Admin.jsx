@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { checkAdminSession, logoutAdmin } from '../api/client';
 import MobileBottomNav from '../components/MobileBottomNav';
-import ReportBugModal from '../components/ReportBugModal';
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -10,7 +9,6 @@ export default function Admin() {
 
   const [loading, setLoading]         = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
-  const [showBugModal, setShowBugModal] = useState(false);
 
   const loadAdminData = useCallback(async () => {
     try {
@@ -30,6 +28,7 @@ export default function Admin() {
   }, [navigate, loadAdminData]);
 
   const logout = () => {
+    localStorage.removeItem('rac_admin_session');
     logoutAdmin()
       .catch(() => {})
       .finally(() => {
@@ -43,6 +42,11 @@ export default function Admin() {
 
   const isActive = (path) => location.pathname.includes(path) ? 'active' : '';
 
+  // Backend sections navigate in the same tab
+  const openSection = (path) => {
+    navigate(path);
+  };
+
   return (
     <div className="admin-layout-wrapper">
       {/* Mobile Top Header */}
@@ -51,14 +55,6 @@ export default function Admin() {
           <i className="fa-solid fa-shield-halved" style={{ color: '#79213C' }} /> Admin Portal
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button 
-            className="admin-btn" 
-            onClick={() => setShowBugModal(true)} 
-            style={{ padding: '6px 10px', fontSize: '0.78rem', background: 'rgba(121,33,60,0.08)', color: '#79213C', border: '1px solid rgba(121,33,60,0.2)' }}
-            title="Report Bug"
-          >
-            <i className="fa-solid fa-bug" />
-          </button>
           <button className="admin-btn admin-btn-danger" onClick={logout} style={{ padding: '6px 12px', fontSize: '0.78rem' }}>
             <i className="fa-solid fa-right-from-bracket" style={{ marginRight: 4 }} />
             Logout
@@ -66,40 +62,28 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* Mobile Nav Pills Header */}
+      {/* Mobile Nav Pills Header — opens sections in a new tab/panel */}
       <div className="admin-mobile-sub-nav">
-        <button className={`admin-mobile-pill ${location.pathname === '/admin/edit' ? 'active' : ''}`} onClick={() => navigate('/admin/edit')}>
+        <button className={`admin-mobile-pill ${location.pathname === '/admin/edit' ? 'active' : ''}`} onClick={() => openSection('/admin/edit')}>
           <i className="fa-solid fa-pen-to-square" style={{ marginRight: 6 }} /> Visual Editor
         </button>
         {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('EVENT_MANAGER')) && (
-          <button className={`admin-mobile-pill ${isActive('/admin/events')}`} onClick={() => navigate('/admin/events')}>
+          <button className={`admin-mobile-pill ${isActive('/admin/events')}`} onClick={() => openSection('/admin/events')}>
             <i className="fa-solid fa-calendar-days" style={{ marginRight: 6 }} /> Events
           </button>
         )}
         {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('VIEW_LOGS')) && (
-          <button className={`admin-mobile-pill ${isActive('/admin/logs')}`} onClick={() => navigate('/admin/logs')}>
+          <button className={`admin-mobile-pill ${isActive('/admin/logs')}`} onClick={() => openSection('/admin/logs')}>
             <i className="fa-solid fa-list-check" style={{ marginRight: 6 }} /> Audit Logs
           </button>
         )}
-        {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('VIEW_ERROR_LOGS')) && (
-          <button className={`admin-mobile-pill ${isActive('/admin/error-logs')}`} onClick={() => navigate('/admin/error-logs')}>
-            <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: 6 }} /> Error Logs
-          </button>
-        )}
         {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('ADMIN_CREATOR') || currentUser?.permissions?.includes('ACCOUNT_PASSWORD_RESET') || currentUser?.permissions?.includes('DEACTIVATE_ACCOUNT') || currentUser?.permissions?.includes('DELETE_ACCOUNT')) && (
-          <button className={`admin-mobile-pill ${isActive('/admin/manage')}`} onClick={() => navigate('/admin/manage')}>
+          <button className={`admin-mobile-pill ${isActive('/admin/manage')}`} onClick={() => openSection('/admin/manage')}>
             <i className="fa-solid fa-users-gear" style={{ marginRight: 6 }} /> Admins
           </button>
         )}
-        <button className={`admin-mobile-pill ${isActive('/admin/settings')}`} onClick={() => navigate('/admin/settings')}>
+        <button className={`admin-mobile-pill ${isActive('/admin/settings')}`} onClick={() => openSection('/admin/settings')}>
           <i className="fa-solid fa-gear" style={{ marginRight: 6 }} /> Settings
-        </button>
-        <button 
-          className="admin-mobile-pill" 
-          onClick={() => setShowBugModal(true)}
-          style={{ background: 'rgba(121,33,60,0.06)', color: '#79213C', borderColor: 'rgba(121,33,60,0.2)' }}
-        >
-          <i className="fa-solid fa-bug" style={{ marginRight: 6 }} /> Report Bug
         </button>
       </div>
 
@@ -111,40 +95,33 @@ export default function Admin() {
           </div>
           
           <div className="admin-nav">
-            <button className="admin-nav-item" onClick={() => navigate('/admin/edit')}>
+            <button className="admin-nav-item" onClick={() => openSection('/admin/edit')}>
               <i className="fa-solid fa-pen-to-square" style={{ fontSize: '15px', width: '20px', textAlign: 'center' }} />
               <span>Visual Editor</span>
             </button>
 
             {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('EVENT_MANAGER')) && (
-              <button className={`admin-nav-item ${isActive('/admin/events')}`} onClick={() => navigate('/admin/events')}>
+              <button className={`admin-nav-item ${isActive('/admin/events')}`} onClick={() => openSection('/admin/events')}>
                 <i className="fa-solid fa-calendar-days" style={{ fontSize: '15px', width: '20px', textAlign: 'center' }} />
                 <span>Events Manager</span>
               </button>
             )}
 
             {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('VIEW_LOGS')) && (
-              <button className={`admin-nav-item ${isActive('/admin/logs')}`} onClick={() => navigate('/admin/logs')}>
+              <button className={`admin-nav-item ${isActive('/admin/logs')}`} onClick={() => openSection('/admin/logs')}>
                 <i className="fa-solid fa-list-check" style={{ fontSize: '15px', width: '20px', textAlign: 'center' }} />
                 <span>Audit Logs</span>
               </button>
             )}
 
-            {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('VIEW_ERROR_LOGS')) && (
-              <button className={`admin-nav-item ${isActive('/admin/error-logs')}`} onClick={() => navigate('/admin/error-logs')}>
-                <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: '15px', width: '20px', textAlign: 'center' }} />
-                <span>Error Logs</span>
-              </button>
-            )}
-
             {(currentUser?.role === 'SUPERADMIN' || currentUser?.permissions?.includes('ADMIN_CREATOR') || currentUser?.permissions?.includes('ACCOUNT_PASSWORD_RESET') || currentUser?.permissions?.includes('DEACTIVATE_ACCOUNT') || currentUser?.permissions?.includes('DELETE_ACCOUNT')) && (
-              <button className={`admin-nav-item ${isActive('/admin/manage')}`} onClick={() => navigate('/admin/manage')}>
+              <button className={`admin-nav-item ${isActive('/admin/manage')}`} onClick={() => openSection('/admin/manage')}>
                 <i className="fa-solid fa-users-gear" style={{ fontSize: '15px', width: '20px', textAlign: 'center' }} />
                 <span>Manage Admins</span>
               </button>
             )}
 
-            <button className={`admin-nav-item ${isActive('/admin/settings')}`} onClick={() => navigate('/admin/settings')}>
+            <button className={`admin-nav-item ${isActive('/admin/settings')}`} onClick={() => openSection('/admin/settings')}>
               <i className="fa-solid fa-gear" style={{ fontSize: '15px', width: '20px', textAlign: 'center' }} />
               <span>Settings</span>
             </button>
@@ -152,13 +129,9 @@ export default function Admin() {
         </div>
         
         <div className="admin-nav" style={{ paddingTop: 0 }}>
-          <button 
-            className="admin-nav-item" 
-            onClick={() => setShowBugModal(true)}
-            style={{ color: '#79213C', fontWeight: 600 }}
-          >
-            <i className="fa-solid fa-bug" style={{ fontSize: '15px', width: '20px', textAlign: 'center' }} />
-            <span>Report a Bug</span>
+          <button className="admin-nav-item" onClick={() => navigate('/')}>
+            <i className="fa-solid fa-house" style={{ fontSize: '15px', width: '20px', textAlign: 'center' }} />
+            <span>Back to Home</span>
           </button>
           <button className="admin-nav-item danger" onClick={logout}>
             <i className="fa-solid fa-right-from-bracket" style={{ fontSize: '15px', width: '20px', textAlign: 'center' }} />
@@ -172,12 +145,6 @@ export default function Admin() {
       </div>
 
       <MobileBottomNav />
-
-      {/* Report Bug Modal */}
-      <ReportBugModal
-        isOpen={showBugModal}
-        onClose={() => setShowBugModal(false)}
-      />
     </div>
   );
 }

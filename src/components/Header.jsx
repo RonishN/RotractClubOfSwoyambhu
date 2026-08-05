@@ -3,14 +3,15 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useLang } from '../context/LanguageContext';
 import logo from '../assets/images/logo.png';
 import { checkAdminSession } from '../api/client';
-import ReportBugModal from './ReportBugModal';
 
 export default function Header() {
   const { lang, toggleLang } = useLang();
   const navigate = useNavigate();
   const location = useLocation();
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
-  const [showBugModal, setShowBugModal] = useState(false);
+  // Start from the last-known status so the Admin link never flickers away
+  // while the background session check completes on each page navigation.
+  // (The session cookie is HttpOnly, so it can't be read client-side.)
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => localStorage.getItem('rac_admin_session') === '1');
 
   const isHomePage = location.pathname === '/';
   const [scrolled, setScrolled] = useState(!isHomePage);
@@ -19,8 +20,14 @@ export default function Header() {
 
   useEffect(() => {
     checkAdminSession()
-      .then(() => setIsAdminLoggedIn(true))
-      .catch(() => setIsAdminLoggedIn(false));
+      .then(() => {
+        localStorage.setItem('rac_admin_session', '1');
+        setIsAdminLoggedIn(true);
+      })
+      .catch(() => {
+        localStorage.removeItem('rac_admin_session');
+        setIsAdminLoggedIn(false);
+      });
 
     const handleScroll = () => {
       if (!isHomePage) {
@@ -102,40 +109,13 @@ export default function Header() {
                 {lang === 'en' ? 'Gallery' : 'ग्यालरी'}
               </Link>
             </li>
-            <li>
-              <Link to={isAdminLoggedIn ? '/admin' : '/login'} onClick={() => setMobileMenuOpen(false)}>
-                {isAdminLoggedIn
-                  ? (lang === 'en' ? 'Admin' : 'एडमिन')
-                  : (lang === 'en' ? 'Login' : 'लगइन')}
-              </Link>
-            </li>
-            <li>
-              <button
-                type="button"
-                onClick={() => { setShowBugModal(true); setMobileMenuOpen(false); }}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'inherit',
-                  cursor: 'pointer',
-                  fontSize: 'inherit',
-                  fontFamily: 'inherit',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: 0,
-                  opacity: 0.85,
-                  transition: 'opacity 0.2s',
-                }}
-                onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                onMouseLeave={e => e.currentTarget.style.opacity = 0.85}
-                title="Report a Bug or Issue"
-              >
-                <i className="fa-solid fa-bug" style={{ fontSize: '0.85rem' }} />
-                <span>{lang === 'en' ? 'Report Bug' : 'समस्या दर्ता'}</span>
-              </button>
-            </li>
+            {isAdminLoggedIn && (
+              <li>
+                <Link to="/admin" onClick={() => setMobileMenuOpen(false)}>
+                  {lang === 'en' ? 'Admin' : 'एडमिन'}
+                </Link>
+              </li>
+            )}
             <li>
               <div 
                 style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }} 
@@ -149,12 +129,6 @@ export default function Header() {
           </ul>
         </nav>
       </header>
-
-      {/* Report Bug Modal */}
-      <ReportBugModal
-        isOpen={showBugModal}
-        onClose={() => setShowBugModal(false)}
-      />
     </>
   );
 }

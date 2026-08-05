@@ -1,20 +1,36 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { globalLoadingState } from '../api/client';
 import logo from '../assets/images/logo.png';
 
 export default function GlobalLoading() {
   const [isLoading, setIsLoading] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const showTimer = useRef(null);
   const location = useLocation();
 
   useEffect(() => {
-    const unsubscribe = globalLoadingState.subscribe(setIsLoading);
-    return unsubscribe;
+    const unsubscribe = globalLoadingState.subscribe((loading) => {
+      setIsLoading(loading);
+      if (loading) {
+        clearTimeout(showTimer.current);
+        // Only show the overlay when a request takes a while, so quick
+        // navigation fetches don't make the whole screen flash.
+        showTimer.current = setTimeout(() => setShowOverlay(true), 300);
+      } else {
+        clearTimeout(showTimer.current);
+        setShowOverlay(false);
+      }
+    });
+    return () => {
+      clearTimeout(showTimer.current);
+      unsubscribe();
+    };
   }, []);
 
   // Only show the processing modal overlay on admin routes (/admin)
   const isAdminRoute = location.pathname.startsWith('/admin');
-  if (!isLoading || !isAdminRoute) return null;
+  if (!isLoading || !showOverlay || !isAdminRoute) return null;
 
   return (
     <div style={{

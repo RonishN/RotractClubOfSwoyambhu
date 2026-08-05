@@ -67,7 +67,9 @@ const websiteDefaults = {
     { id: '3', imgUrl: '/src/assets/images/img4.jpg', captionEn: 'Youth Workshop', captionNe: 'युवा कार्यशाला' },
     { id: '4', imgUrl: '/src/assets/images/img1.png', captionEn: 'Cultural Event', captionNe: 'सांस्कृतिक कार्यक्रम' },
   ],
+  albums: [],
   eventsList: [],
+  highlights: [],
   timestamp: '',
 };
 
@@ -174,6 +176,8 @@ function normalizeWebsiteData(data) {
     aboutEn: data.aboutEn ?? '',
     aboutNe: data.aboutNe ?? '',
     eventsList: Array.isArray(data.eventsList) ? data.eventsList : [],
+    albums: Array.isArray(data.albums) ? data.albums : [],
+    highlights: Array.isArray(data.highlights) ? data.highlights : [],
     timestamp: data.timestamp ?? '',
   };
 }
@@ -357,6 +361,21 @@ function validateWebsitePayload(data) {
       if (g.captionEn != null && (typeof g.captionEn !== 'string' || g.captionEn.length > 300)) return `gallery[${i}].captionEn is invalid`;
       if (g.captionNe != null && (typeof g.captionNe !== 'string' || g.captionNe.length > 300)) return `gallery[${i}].captionNe is invalid`;
       if (g.imgUrl != null && (typeof g.imgUrl !== 'string' || !SAFE_URL_PATTERN.test(g.imgUrl))) return `gallery[${i}].imgUrl is invalid`;
+      if (g.albumId != null && (typeof g.albumId !== 'string' || g.albumId.length > 100)) return `gallery[${i}].albumId is invalid`;
+    }
+  }
+
+  if (data.albums != null) {
+    if (!Array.isArray(data.albums)) return 'albums must be an array';
+    if (data.albums.length > MAX_ITEMS) return `albums exceeds max items (${MAX_ITEMS})`;
+    for (const [i, a] of data.albums.entries()) {
+      if (!a || typeof a !== 'object') return `albums[${i}] is invalid`;
+      if (a.id == null || typeof a.id !== 'string' || a.id.length > 100) return `albums[${i}].id is invalid`;
+      if (a.titleEn != null && (typeof a.titleEn !== 'string' || a.titleEn.length > 300)) return `albums[${i}].titleEn is invalid`;
+      if (a.titleNe != null && (typeof a.titleNe !== 'string' || a.titleNe.length > 300)) return `albums[${i}].titleNe is invalid`;
+      if (a.description != null && (typeof a.description !== 'string' || a.description.length > 1000)) return `albums[${i}].description is invalid`;
+      if (a.coverImage != null && (typeof a.coverImage !== 'string' || !SAFE_URL_PATTERN.test(a.coverImage))) return `albums[${i}].coverImage is invalid`;
+      if (a.eventId != null && (typeof a.eventId !== 'string' || a.eventId.length > 100)) return `albums[${i}].eventId is invalid`;
     }
   }
 
@@ -379,6 +398,20 @@ function validateWebsitePayload(data) {
       if (init.titleEn != null && (typeof init.titleEn !== 'string' || init.titleEn.length > 300)) return `initiatives[${i}].titleEn is invalid`;
       if (init.titleNe != null && (typeof init.titleNe !== 'string' || init.titleNe.length > 300)) return `initiatives[${i}].titleNe is invalid`;
       if (init.desc != null && (typeof init.desc !== 'string' || init.desc.length > 1000)) return `initiatives[${i}].desc is invalid`;
+    }
+  }
+
+  if (data.highlights != null) {
+    if (!Array.isArray(data.highlights)) return 'highlights must be an array';
+    if (data.highlights.length > MAX_ITEMS) return `highlights exceeds max items (${MAX_ITEMS})`;
+    for (const [i, h] of data.highlights.entries()) {
+      if (!h || typeof h !== 'object') return `highlights[${i}] is invalid`;
+      if (h.id == null || typeof h.id !== 'string' || h.id.length > 100) return `highlights[${i}].id is invalid`;
+      if (h.title != null && (typeof h.title !== 'string' || h.title.length > 300)) return `highlights[${i}].title is invalid`;
+      if (h.titleNe != null && (typeof h.titleNe !== 'string' || h.titleNe.length > 300)) return `highlights[${i}].titleNe is invalid`;
+      if (h.description != null && (typeof h.description !== 'string' || h.description.length > 1000)) return `highlights[${i}].description is invalid`;
+      if (h.badge != null && (typeof h.badge !== 'string' || h.badge.length > 100)) return `highlights[${i}].badge is invalid`;
+      if (h.imageUrl != null && (typeof h.imageUrl !== 'string' || !SAFE_URL_PATTERN.test(h.imageUrl))) return `highlights[${i}].imageUrl is invalid`;
     }
   }
 
@@ -2289,13 +2322,26 @@ app.delete('/api/admin/events/:id', requireAuth, async (req, res) => {
     const existingList = Array.isArray(oldData.eventsList) ? oldData.eventsList : [];
 
     const nextEvents = existingList.filter(e => e.id !== id);
-    const newData = { ...oldData, eventsList: nextEvents, timestamp: new Date().toLocaleString() };
+
+    // Clean up any albums still linked to the deleted event so they don't keep a stale eventId
+    const existingAlbums = Array.isArray(oldData.albums) ? oldData.albums : [];
+    const albumsChanged = existingAlbums.some(a => (a.eventId || '') === id);
+    const nextAlbums = existingAlbums.map(a =>
+      (a.eventId || '') === id ? { ...a, eventId: '' } : a
+    );
+
+    const newData = {
+      ...oldData,
+      eventsList: nextEvents,
+      albums: nextAlbums,
+      timestamp: new Date().toLocaleString(),
+    };
 
     const historyEntry = { old: oldData, new: newData, changedBy: req.user.username };
     const nextHistory = [historyEntry, ...store.history].slice(0, 10);
 
     await writeStore({ websiteData: newData, history: nextHistory });
-    await logAudit('DELETE_EVENT', req.user.username, { eventId: id });
+    await logAudit('DELETE_EVENT', req.user.username, { eventId: id, albumsCleaned: albumsChanged });
 
     res.json({ message: 'Event deleted successfully' });
   } catch (err) {

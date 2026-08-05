@@ -44,7 +44,28 @@ export default function AuditLogs() {
     visiblePages.push(i);
   }
 
-  if (loading) return <div className="admin-card"><div className="admin-page-header"><h2 className="admin-page-title serif">Audit Logs</h2></div><div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}><span className="admin-spinner" style={{ borderTopColor: 'var(--navy)' }} /></div></div>;
+  if (loading) return (
+    <div className="admin-card">
+      <div className="admin-page-header">
+        <h2 className="admin-page-title serif">Audit Logs</h2>
+        <p className="admin-page-subtitle">Track administrative actions and system events.</p>
+      </div>
+      <div className="admin-table-container desktop-only-table" aria-busy="true" aria-label="Loading logs">
+        <table className="admin-table">
+          <tbody>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <tr key={i}>
+                <td><div className="sk" style={{ height: 15, width: 150 }} /></td>
+                <td><div className="sk" style={{ height: 15, width: 90 }} /></td>
+                <td><div className="sk" style={{ height: 15, width: 110 }} /></td>
+                <td><div className="sk" style={{ height: 40, width: '80%' }} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 
   return (
     <div className="admin-card">

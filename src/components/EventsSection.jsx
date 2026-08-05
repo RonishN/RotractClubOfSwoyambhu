@@ -15,24 +15,12 @@ export default function EventsSection() {
     getPublicEvents()
       .then((data) => {
         const todayStr = new Date().toISOString().split('T')[0];
-        // Filter upcoming events (eventDate >= todayStr) or fallback to all events if none upcoming, sorted by date
+        // Only upcoming events (eventDate >= todayStr), sorted by date
         const upcoming = (data || [])
           .filter((e) => e.eventDate >= todayStr)
           .sort((a, b) => a.eventDate.localeCompare(b.eventDate))
           .slice(0, 3);
-        
-        // If less than 3 upcoming, pad with latest completed events
-        if (upcoming.length < 3) {
-          const remainingCount = 3 - upcoming.length;
-          const remainingIds = new Set(upcoming.map((u) => u.id));
-          const padding = (data || [])
-            .filter((e) => !remainingIds.has(e.id))
-            .sort((a, b) => b.eventDate.localeCompare(a.eventDate))
-            .slice(0, remainingCount);
-          setEvents([...upcoming, ...padding]);
-        } else {
-          setEvents(upcoming);
-        }
+        setEvents(upcoming);
       })
       .catch(() => setEvents([]))
       .finally(() => setLoading(false));
@@ -61,8 +49,21 @@ export default function EventsSection() {
       {/* Magazine-style event cards */}
       <div className="events-magazine fade-in delay-1" style={{ opacity: 1, transform: 'none' }}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '3rem 0', color: 'var(--navy)' }}>
-            <span className="admin-spinner" style={{ borderTopColor: 'var(--saffron)' }} />
+          <div aria-busy="true" aria-label="Loading events">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="event-magazine-card" style={{ opacity: 1, animation: 'none' }}>
+                <div className="event-card-accent" />
+                <div className="event-card-date-badge">
+                  <div className="sk" style={{ height: 22, width: 40, margin: '0 auto 6px' }} />
+                  <div className="sk" style={{ height: 11, width: 34, margin: '0 auto' }} />
+                </div>
+                <div className="event-card-body">
+                  <div className="sk" style={{ height: 18, width: '62%', marginBottom: 12 }} />
+                  <div className="sk" style={{ height: 13, width: '92%', marginBottom: 8 }} />
+                  <div className="sk" style={{ height: 13, width: '48%' }} />
+                </div>
+              </div>
+            ))}
           </div>
         ) : events.length === 0 ? (
           <div style={{ textAlign: 'center', color: '#64748b', padding: '2rem 0' }}>

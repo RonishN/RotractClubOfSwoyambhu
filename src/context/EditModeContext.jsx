@@ -169,6 +169,29 @@ export function EditModeProvider({ children, initialContent = {} }) {
     });
   }, []);
 
+  // Immediately persist a full content object (e.g. after album CRUD) so changes
+  // survive a page refresh without requiring the manual Save button first.
+  const persistContent = useCallback(async (content) => {
+    try {
+      const result = await updateAdminContent(content);
+      const saved = result.websiteData;
+      setOriginalContent(saved);
+      setDraft(saved);
+      originalJsonRef.current = JSON.stringify(saved);
+      draftJsonRef.current = JSON.stringify(saved);
+      setHasChanges(false);
+      return saved;
+    } catch (err) {
+      if (err?.status === 401) {
+        showToast('error', 'Your session has expired. Please log in again.', false);
+        setTimeout(() => { window.location.href = '/login'; }, 2500);
+      } else {
+        showToast('error', err?.message || 'Failed to save changes', false, err);
+      }
+      throw err;
+    }
+  }, [showToast]);
+
   return (
     <EditModeContext.Provider value={{
       isAdmin,
@@ -177,6 +200,7 @@ export function EditModeProvider({ children, initialContent = {} }) {
       draft,
       updateDraftField,
       updateDraftArray,
+      persistContent,
       saveAll,
       saving,
       discard,

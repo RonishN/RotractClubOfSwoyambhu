@@ -3,6 +3,8 @@ import { useOutletContext } from 'react-router-dom';
 import { getAdminEvents, createEvent, updateEvent, deleteEvent, uploadImage, notifyEventSubscribers, resetEventNotifiedStates, setPriorityEvent } from '../api/client';
 import EventCarousel from '../components/EventCarousel';
 import ImageCropModal from '../components/ImageCropModal';
+import EventHighlightsManager from '../components/EventHighlightsManager';
+import RowActions from '../components/RowActions';
 
 export default function AdminEvents() {
   const { currentUser } = useOutletContext();
@@ -17,11 +19,13 @@ export default function AdminEvents() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [viewingEvent, setViewingEvent] = useState(null);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [eventTime, setEventTime] = useState('');
+  const [venue, setVenue] = useState('');
   const [attendees, setAttendees] = useState('');
   const [registrationLink, setRegistrationLink] = useState('');
   const [registrationClosed, setRegistrationClosed] = useState(false);
@@ -71,6 +75,7 @@ export default function AdminEvents() {
     setDescription('');
     setEventDate('');
     setEventTime('');
+    setVenue('');
     setAttendees('');
     setRegistrationLink('');
     setRegistrationClosed(false);
@@ -96,6 +101,7 @@ export default function AdminEvents() {
     setDescription(ev.description || '');
     setEventDate(ev.eventDate || '');
     setEventTime(ev.eventTime || '');
+    setVenue(ev.venue || '');
     setAttendees(ev.attendees || '');
     setRegistrationLink(ev.registrationLink || '');
     setRegistrationClosed(Boolean(ev.registrationClosed));
@@ -267,6 +273,7 @@ export default function AdminEvents() {
       description: description.trim(),
       eventDate,
       eventTime: eventTime.trim(),
+      venue: venue.trim(),
       attendees: attendees.trim(),
       registrationLink: registrationLink.trim(),
       registrationClosed,
@@ -501,6 +508,17 @@ export default function AdminEvents() {
                     className="admin-input"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: 6 }}>Venue / Location</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Swayambhu Community Hall, Kathmandu"
+                  value={venue}
+                  onChange={(e) => setVenue(e.target.value)}
+                  className="admin-input"
+                />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -738,9 +756,122 @@ export default function AdminEvents() {
           />
         </div>
 
+        {/* Event View Modal (Read-only) */}
+        {viewingEvent && (
+          <div
+            onClick={() => setViewingEvent(null)}
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 9999, padding: '20px'
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: '#ffffff', borderRadius: 20, width: '100%', maxWidth: '720px',
+                maxHeight: '90vh', overflowY: 'auto', padding: '28px 32px',
+                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', border: '1px solid #e2e8f0'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid #f1f5f9' }}>
+                <h3 className="serif" style={{ margin: 0, fontSize: '1.3rem', color: '#0f172a' }}>Event Details</h3>
+                <button
+                  type="button"
+                  onClick={() => setViewingEvent(null)}
+                  style={{
+                    background: '#f1f5f9', border: 'none', borderRadius: '50%',
+                    width: 32, height: 32, cursor: 'pointer', fontSize: '1.1rem',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b'
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+                <span className={`admin-badge ${viewingEvent.status === 'Draft' ? 'admin-badge-neutral' : 'admin-badge-success'}`}>
+                  {viewingEvent.status || 'Published'}
+                </span>
+                {viewingEvent.isPriority && (
+                  <span className="admin-badge" style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff' }}>
+                    <i className="fa-solid fa-star" style={{ marginRight: 4 }} /> Priority
+                  </span>
+                )}
+              </div>
+
+              <h2 style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '1.5rem', lineHeight: 1.3 }} className="serif">{viewingEvent.title}</h2>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, color: '#64748b', fontSize: '0.88rem', fontWeight: 600, margin: '4px 0 18px' }}>
+                <span><i className="fa-regular fa-calendar" style={{ marginRight: 5, color: 'var(--magenta)' }} />{viewingEvent.eventDate}</span>
+                {viewingEvent.eventTime && <span><i className="fa-regular fa-clock" style={{ marginRight: 5, color: '#94a3b8' }} />{viewingEvent.eventTime}</span>}
+                {viewingEvent.venue && <span><i className="fa-solid fa-location-dot" style={{ marginRight: 5, color: '#94a3b8' }} />{viewingEvent.venue}</span>}
+                {viewingEvent.attendees && <span><i className="fa-solid fa-users" style={{ marginRight: 5, color: '#94a3b8' }} />{viewingEvent.attendees}</span>}
+              </div>
+
+              {viewingEvent.description && (
+                <p style={{ color: '#475569', fontSize: '0.95rem', lineHeight: 1.7, margin: '0 0 18px' }}>{viewingEvent.description}</p>
+              )}
+
+              {viewingEvent.pictures?.length > 0 && (
+                <div style={{ marginBottom: 18 }}>
+                  <div style={{ fontSize: '0.74rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+                    <i className="fa-solid fa-images" style={{ marginRight: 5 }} /> Photos ({viewingEvent.pictures.length})
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 8 }}>
+                    {viewingEvent.pictures.map((url, idx) => (
+                      <img key={idx} src={url} alt={`${viewingEvent.title} ${idx + 1}`} style={{ width: '100%', height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
+                {viewingEvent.tags?.map((t) => (
+                  <span key={t} className="admin-badge admin-badge-info">#{t}</span>
+                ))}
+                {(!viewingEvent.tags || viewingEvent.tags.length === 0) && (
+                  <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>No tags</span>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, borderTop: '1px solid #f1f5f9', paddingTop: 16 }}>
+                {viewingEvent.registrationLink && (
+                  <a
+                    href={viewingEvent.registrationLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="admin-btn admin-btn-primary"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <i className="fa-solid fa-arrow-up-right-from-square" style={{ marginRight: 6 }} /> Open Registration Link
+                  </a>
+                )}
+                <button type="button" className="admin-btn admin-btn-outline" onClick={() => { setViewingEvent(null); handleEditClick(viewingEvent); }}>
+                  <i className="fa-solid fa-pen" style={{ marginRight: 6 }} /> Edit Event
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
-            <span className="admin-spinner" style={{ borderTopColor: 'var(--navy)' }} />
+          <div className="admin-table-container desktop-only-table" aria-busy="true" aria-label="Loading events">
+            <table className="admin-table">
+              <tbody>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td style={{ width: 48 }}><div className="sk" style={{ height: 18, width: 18, margin: '0 auto' }} /></td>
+                    <td><div className="sk" style={{ height: 16, width: '40%' }} /></td>
+                    <td><div className="sk" style={{ height: 16, width: '65%' }} /></td>
+                    <td><div className="sk" style={{ height: 16, width: 60 }} /></td>
+                    <td><div className="sk" style={{ height: 18, width: 80 }} /></td>
+                    <td><div className="sk" style={{ height: 16, width: 100 }} /></td>
+                    <td style={{ width: 150 }}><div className="sk" style={{ height: 28, width: 90 }} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : filteredEvents.length === 0 ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: 12 }}>
@@ -777,6 +908,7 @@ export default function AdminEvents() {
                         {ev.isPriority && <div style={{ fontSize: '0.7rem', background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff', display: 'inline-block', padding: '2px 8px', borderRadius: 10, fontWeight: 700, marginBottom: 4, letterSpacing: '0.3px' }}>PRIORITY EVENT</div>}
                         <div style={{ fontWeight: 600, color: '#0f172a' }}>{ev.title}</div>
                         {ev.attendees && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Attendees: {ev.attendees}</div>}
+                        {ev.venue && <div style={{ fontSize: '0.75rem', color: '#475569' }}><i className="fa-solid fa-location-dot" style={{ marginRight: 4 }} />{ev.venue}</div>}
                         {ev.collaborators && ev.collaborators.length > 0 && (
                           <div style={{ fontSize: '0.75rem', color: '#475569' }}>
                             Collabs: {ev.collaborators.map(c => c.name).join(', ')}
@@ -805,33 +937,27 @@ export default function AdminEvents() {
                         </div>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                          {ev.eventDate >= new Date().toISOString().split('T')[0] && ev.status !== 'Draft' && (
-                            <button
-                              type="button"
-                              className={`admin-btn ${ev.notifiedSubscribers ? 'admin-btn-secondary' : 'admin-btn-primary'}`}
-                              onClick={() => handleNotifySubscribers(ev)}
-                              disabled={ev.notifiedSubscribers || notifyingId === ev.id}
-                              style={{
-                                padding: '6px 12px', fontSize: '0.8rem',
-                                display: 'inline-flex', alignItems: 'center', gap: 5,
-                                opacity: ev.notifiedSubscribers ? 0.7 : 1,
-                                cursor: ev.notifiedSubscribers ? 'not-allowed' : 'pointer'
-                              }}
-                            >
-                              <span>
-                                <i className={`fa-solid ${ev.notifiedSubscribers ? 'fa-check' : notifyingId === ev.id ? 'fa-spinner fa-spin' : 'fa-bell'}`} style={{ marginRight: 4 }} />
-                                {ev.notifiedSubscribers ? 'Notified' : notifyingId === ev.id ? 'Sending...' : 'Notify'}
-                              </span>
-                            </button>
-                          )}
-                          <button className="admin-btn admin-btn-outline" onClick={() => handleEditClick(ev)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-                            Edit
-                          </button>
-                          <button className="admin-btn admin-btn-danger" onClick={() => handleDelete(ev.id, ev.title)} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-                            Delete
-                          </button>
-                        </div>
+                        <RowActions
+                          onView={() => setViewingEvent(ev)}
+                          onEdit={() => handleEditClick(ev)}
+                          onDelete={() => handleDelete(ev.id, ev.title)}
+                          viewTitle="View Event"
+                          more={[
+                            {
+                              label: ev.notifiedSubscribers ? 'Notified Subscribers' : 'Notify Subscribers',
+                              icon: ev.notifiedSubscribers ? 'fa-bell-slash' : 'fa-bell',
+                              disabled: ev.notifiedSubscribers || notifyingId === ev.id,
+                              hidden: ev.eventDate < new Date().toISOString().split('T')[0] || ev.status === 'Draft',
+                              onClick: () => handleNotifySubscribers(ev),
+                            },
+                            {
+                              label: ev.isPriority ? 'Remove Priority' : 'Set as Priority',
+                              icon: ev.isPriority ? 'fa-star' : 'fa-star',
+                              disabled: settingPriorityId === ev.id,
+                              onClick: () => handleSetPriority(ev),
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -861,6 +987,13 @@ export default function AdminEvents() {
                       {ev.status || 'Published'}
                     </span>
                   </div>
+
+                  {ev.venue && (
+                    <div className="mobile-card-meta">
+                      <i className="fa-solid fa-location-dot" style={{ marginRight: 4, color: 'var(--magenta)' }} />
+                      {ev.venue}
+                    </div>
+                  )}
 
                   {ev.attendees && (
                     <div className="mobile-card-meta">
@@ -925,6 +1058,8 @@ export default function AdminEvents() {
       >
         +
       </button>
+
+      <EventHighlightsManager />
     </div>
   );
 }

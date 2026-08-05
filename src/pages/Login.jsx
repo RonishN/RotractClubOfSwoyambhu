@@ -28,6 +28,10 @@ export default function Login() {
   const isPasswordValid = Object.values(passChecklist).every(Boolean);
 
   useEffect(() => {
+    if (!sessionStorage.getItem('adminIntent')) {
+      navigate('/', { replace: true });
+      return;
+    }
     checkAdminSession()
       .then(() => navigate('/admin'))
       .catch(() => {})

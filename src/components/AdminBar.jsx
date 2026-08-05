@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useEditMode } from '../context/EditModeContext';
-import ReportBugModal from './ReportBugModal';
 
 // Decode the JWT exp field without verifying signature (client-side only, for UI purposes)
 function getSessionExpiresAt() {
@@ -60,8 +59,6 @@ export default function AdminBar({ onSwitchToHistory, onLogout }) {
 
   const [sessionWarning, setSessionWarning] = useState(false);
   const [minutesLeft, setMinutesLeft] = useState(null);
-  const [showBugModal, setShowBugModal] = useState(false);
-  const [bugData, setBugData] = useState(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -349,16 +346,17 @@ export default function AdminBar({ onSwitchToHistory, onLogout }) {
           </div>
         </div>
 
-        {/* ── Row 2: Navigation ── */}
+        {/* ── Row 2: Navigation — backend sections navigate in the same tab ── */}
         <div className="admin-bar-row2">
           <button
             className="admin-nav-btn"
-            onClick={onSwitchToHistory}
+            onClick={() => navigate('/admin')}
             disabled={saving}
             style={navBtnStyle(false)}
+            title="Go to Admin Portal"
           >
             <i className="fa-solid fa-clock-rotate-left" style={{ fontSize: '11px', marginRight: 4 }} />
-            History
+            Admin Panel
           </button>
 
           <div className="admin-divider-v" style={{ height: 16 }} />
@@ -368,6 +366,7 @@ export default function AdminBar({ onSwitchToHistory, onLogout }) {
             onClick={() => navigate('/admin/edit')}
             disabled={saving}
             style={navBtnStyle(location.pathname === '/admin/edit')}
+            title="Open Visual Editor"
           >
             Edit Home
           </button>
@@ -377,34 +376,11 @@ export default function AdminBar({ onSwitchToHistory, onLogout }) {
             onClick={() => navigate('/admin/edit/gallery')}
             disabled={saving}
             style={navBtnStyle(location.pathname === '/admin/edit/gallery')}
+            title="Open Gallery Editor"
           >
             Edit Gallery
           </button>
 
-          <div className="admin-divider-v" style={{ height: 16 }} />
-
-          <button
-            className="admin-nav-btn"
-            onClick={() => {
-              setBugData({
-                errorMessage: `Visual Editor Issue (${location.pathname})`,
-                endpoint: location.pathname,
-              });
-              setShowBugModal(true);
-            }}
-            disabled={saving}
-            style={{
-              ...navBtnStyle(false),
-              color: '#fda4af',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
-            title="Report a Bug or Issue"
-          >
-            <i className="fa-solid fa-bug" style={{ fontSize: '11px' }} />
-            Report Bug
-          </button>
         </div>
       </div>
 
@@ -461,40 +437,6 @@ export default function AdminBar({ onSwitchToHistory, onLogout }) {
             <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem', lineHeight: 1.4, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
               {toast.message}
             </p>
-            {toast.type !== 'success' && (
-              <button
-                onClick={() => {
-                  setBugData({
-                    errorMessage: toast.message || 'Request failed during save',
-                    endpoint: toast.errorData?.endpoint || location.pathname,
-                    method: toast.errorData?.method || 'POST',
-                    statusCode: toast.errorData?.status || null,
-                    responseData: toast.errorData?.responseData || null,
-                  });
-                  setShowBugModal(true);
-                }}
-                style={{
-                  marginTop: '8px',
-                  background: 'rgba(121, 33, 60, 0.08)',
-                  border: '1px solid rgba(121, 33, 60, 0.25)',
-                  color: '#79213C',
-                  padding: '5px 12px',
-                  borderRadius: '6px',
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  transition: 'all 0.2s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#79213C'; e.currentTarget.style.color = '#ffffff'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(121, 33, 60, 0.08)'; e.currentTarget.style.color = '#79213C'; }}
-              >
-                <i className="fa-solid fa-bug" style={{ fontSize: '11px' }} />
-                Report this issue
-              </button>
-            )}
           </div>
 
           <button
@@ -507,13 +449,6 @@ export default function AdminBar({ onSwitchToHistory, onLogout }) {
           </button>
         </div>
       )}
-
-      {/* ── Report Bug Modal ── */}
-      <ReportBugModal
-        isOpen={showBugModal}
-        onClose={() => setShowBugModal(false)}
-        initialData={bugData}
-      />
     </>
   );
 }

@@ -306,32 +306,3 @@ export async function sendErrorReport(reportData) {
   });
 }
 
-export function getErrorLogs(page = 1, limit = 15, status = 'all', search = '') {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-    status,
-    search,
-  });
-  return request(`/admin/error-logs?${params.toString()}`);
-}
-
-export function toggleResolveErrorLog(id, is_resolved) {
-  return request(`/admin/error-logs/${id}/resolve`, {
-    method: 'PUT',
-    body: JSON.stringify({ is_resolved }),
-  });
-}
-
-export function deleteErrorLog(id) {
-  return request(`/admin/error-logs/${id}`, {
-    method: 'DELETE',
-  });
-}
-
-export function clearAllErrorLogs() {
-  return request('/admin/error-logs', {
-    method: 'DELETE',
-  });
-}
-
