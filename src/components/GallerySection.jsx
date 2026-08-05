@@ -301,9 +301,33 @@ export default function GallerySection({ content = {}, albumId = null }) {
       );
     });
 
+  // Intercept the saveAll call from EditModeContext
+  const editMode = useEditMode();
+  
+  useEffect(() => {
+    // Monitor global saving state to run bulk upload pre-save sequence
+    const interceptSave = async () => {
+      const keys = Object.keys(pendingUploadsRef.current);
+      if (keys.length > 0 && editMode.saving && !bulkUploading) {
+        try {
+          const { nextItems, nextAlbums } = await processPendingUploads(items, albumList);
+          editMode.updateDraftArray('gallery', nextItems);
+          editMode.updateDraftArray('albums', nextAlbums);
+        } catch (err) {
+          console.error('Error during bulk upload pre-save:', err);
+        }
+      }
+    };
+    interceptSave();
+  }, [editMode.saving]);
+
   const openGalleryIndex = () => navigate('/admin/edit/gallery');
   const openAlbum = (id) => navigate(`/admin/edit/gallery/album/${id}`);
-  const albumCover = (a) => items.find(g => (g.albumId || '') === a.id)?.imgUrl || null;
+  const albumCover = (a) => {
+    if (!a) return null;
+    if (a.coverImage) return a.coverImage;
+    return items.find(g => (g.albumId || '') === a.id)?.imgUrl || null;
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -363,37 +387,129 @@ export default function GallerySection({ content = {}, albumId = null }) {
     if (!file) return;
     setUploadingCover(true);
     try {
-      let url;
-      try {
-        url = await uploadImage(file);
-      } catch (err) {
-        if (err?.code === 'IMAGEKIT_NOT_CONFIGURED') {
-          url = await readFileAsBase64(file);
-          showToast('error', 'ImageKit not configured; saved local preview.');
-        } else {
-          throw err;
-        }
-      }
-      setAlbumForm(prev => ({ ...prev, coverImage: url }));
-      showToast('success', 'Album cover image set!');
+      const localUrl = await readFileAsBase64(file);
+      pendingUploadsRef.current['cover-image'] = file;
+      setAlbumForm(prev => ({ ...prev, coverImage: localUrl }));
+      showToast('success', 'Album cover preview set! Click Save Album to finalize.');
     } catch (err) {
-      showToast('error', err?.message || 'Failed to upload cover image.');
+      showToast('error', 'Failed to read cover image preview.');
     } finally {
       setUploadingCover(false);
     }
     if (e.target) e.target.value = '';
   };
 
-  const handleSaveAlbum = () => {
+  // Interceptive upload queue for bulk save
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [bulkUploadProgress, setBulkUploadProgress] = useState({ current: 0, total: 0, actionText: '' });
+
+  const processPendingUploads = async (currentItems, currentAlbums) => {
+    const keys = Object.keys(pendingUploadsRef.current);
+    if (keys.length === 0 && !albumForm.coverImage?.startsWith('data:image')) {
+      return { nextItems: currentItems, nextAlbums: currentAlbums };
+    }
+
+    setBulkUploading(true);
+    let nextItems = [...currentItems];
+    let nextAlbums = [...currentAlbums];
+
+    const totalSteps = keys.length + (albumForm.coverImage?.startsWith('data:image') ? 1 : 0);
+    let currentStep = 0;
+
+    // 1. Upload pending cover image if it is base64/local
+    if (albumForm.coverImage && albumForm.coverImage.startsWith('data:image') && coverFileInputRef.current) {
+      currentStep++;
+      setBulkUploadProgress({
+        current: currentStep,
+        total: totalSteps,
+        actionText: 'Uploading album cover image to ImageKit...'
+      });
+      try {
+        // If we cached the cover file, use it
+        const coverFile = pendingUploadsRef.current['cover-image'];
+        if (coverFile) {
+          const remoteUrl = await uploadImage(coverFile);
+          albumForm.coverImage = remoteUrl;
+          delete pendingUploadsRef.current['cover-image'];
+        }
+      } catch (err) {
+        console.error('Failed to upload cover image:', err);
+      }
+    }
+
+    // 2. Upload other pending gallery images
+    for (let i = 0; i < keys.length; i++) {
+      const idKey = keys[i];
+      if (idKey === 'cover-image') continue;
+      currentStep++;
+      
+      const fileToUpload = pendingUploadsRef.current[idKey];
+      setBulkUploadProgress({
+        current: currentStep,
+        total: totalSteps,
+        actionText: `Uploading image #${currentStep} of ${totalSteps} (${fileToUpload?.name || 'photo'})...`
+      });
+
+      try {
+        if (fileToUpload) {
+          const remoteUrl = await uploadImage(fileToUpload);
+          // Find the item with this temporary id and replace its imgUrl/id
+          const idx = nextItems.findIndex(item => item.id === idKey);
+          if (idx !== -1) {
+            nextItems[idx] = {
+              ...nextItems[idx],
+              id: idKey.startsWith('temp-') ? `img-${Date.now()}-${i}` : idKey,
+              imgUrl: remoteUrl
+            };
+          }
+          delete pendingUploadsRef.current[idKey];
+        }
+      } catch (err) {
+        console.error(`Failed to upload item ${idKey}:`, err);
+      }
+    }
+
+    setBulkUploading(false);
+    return { nextItems, nextAlbums };
+  };
+
+  const handleSaveAlbum = async () => {
     if (!albumForm.titleEn.trim()) {
       showToast('error', 'Album title (English) is required.');
       return;
     }
+
+    // Upload cover image first if it's local
+    let finalCover = albumForm.coverImage;
+    if (albumForm.coverImage && albumForm.coverImage.startsWith('data:image')) {
+      const coverFile = pendingUploadsRef.current['cover-image'];
+      if (coverFile) {
+        setBulkUploading(true);
+        setBulkUploadProgress({ current: 1, total: 1, actionText: 'Uploading album cover...' });
+        try {
+          finalCover = await uploadImage(coverFile);
+          delete pendingUploadsRef.current['cover-image'];
+        } catch (err) {
+          showToast('error', 'Failed to upload cover image.');
+          setBulkUploading(false);
+          return;
+        }
+        setBulkUploading(false);
+      }
+    }
+
     const newList = [...albumList];
     if (editingAlbum) {
       const idx = newList.findIndex(a => a.id === editingAlbum.id);
       if (idx !== -1) {
-        newList[idx] = { ...newList[idx], ...albumForm, titleEn: albumForm.titleEn.trim(), titleNe: albumForm.titleNe.trim(), description: albumForm.description.trim() };
+        newList[idx] = { 
+          ...newList[idx], 
+          ...albumForm, 
+          coverImage: finalCover,
+          titleEn: albumForm.titleEn.trim(), 
+          titleNe: albumForm.titleNe.trim(), 
+          description: albumForm.description.trim() 
+        };
       }
       showToast('success', 'Album updated successfully!');
     } else {
@@ -403,13 +519,18 @@ export default function GallerySection({ content = {}, albumId = null }) {
         titleNe: albumForm.titleNe.trim(),
         description: albumForm.description.trim(),
         eventId: albumForm.eventId,
-        coverImage: albumForm.coverImage,
+        coverImage: finalCover,
       });
       showToast('success', 'Album created successfully!');
     }
-    updateDraftArray('albums', newList);
+
+    // Upload any other pending images in the background if they belong to this album
+    const { nextItems, nextAlbums } = await processPendingUploads(items, newList);
+
+    updateDraftArray('albums', nextAlbums);
+    updateDraftArray('gallery', nextItems);
     // Persist immediately so the album survives a refresh even if Save isn't clicked
-    persistContent({ ...draft, albums: newList }).catch(() => {});
+    persistContent({ ...draft, albums: nextAlbums, gallery: nextItems }).catch(() => {});
     setEditingAlbum(null);
     setAlbumModalOpen(false);
   };
@@ -453,96 +574,90 @@ export default function GallerySection({ content = {}, albumId = null }) {
     if (e.target) e.target.value = '';
   };
 
-  // ── Confirm crop and upload ──
+  // Cache of original Files/Blobs that need uploading on bulk save
+  const pendingUploadsRef = useRef({});
+
+  // ── Confirm crop and update/add local preview ──
   const handleCropConfirm = async (croppedBlobOrFile) => {
     setCropSrc(null);
     try {
-      showToast('info', 'Uploading cropped image...');
-      let url;
-      try {
-        url = await uploadImage(croppedBlobOrFile);
-      } catch (err) {
-        if (err?.code === 'IMAGEKIT_NOT_CONFIGURED') {
-          url = await readFileAsBase64(croppedBlobOrFile);
-          showToast('error', 'ImageKit not configured; saved local preview.');
-        } else {
-          throw err;
-        }
-      }
+      const localUrl = await readFileAsBase64(croppedBlobOrFile);
+      const tempId = `temp-${Date.now()}`;
 
       if (replacingIndex !== null) {
         // Replacing existing image
-        handleUpdate(replacingIndex, 'imgUrl', url);
-        showToast('success', 'Photo replaced successfully!');
+        const targetItem = items[replacingIndex];
+        // Cache original file for upload using the original item ID or tempId
+        const uploadKey = targetItem.id;
+        pendingUploadsRef.current[uploadKey] = croppedBlobOrFile;
+
+        handleUpdate(replacingIndex, 'imgUrl', localUrl);
+        showToast('success', 'Photo preview updated! Click Save in the Admin bar to save.');
         setReplacingIndex(null);
       } else {
-        // Adding new image directly without empty box
+        // Adding new image locally
+        pendingUploadsRef.current[tempId] = croppedBlobOrFile;
+
         const newItem = {
-          id: Date.now().toString(),
-          imgUrl: url,
+          id: tempId,
+          imgUrl: localUrl,
           captionEn: '',
           captionNe: '',
           albumId: isAlbumView ? albumId : '',
         };
         const newList = [...items, newItem];
         updateDraftArray('gallery', newList);
-        showToast('success', 'Photo added to album!');
+        showToast('success', 'Photo added to album preview! Click Save in the Admin bar to save.');
 
         // Automatically prompt for captions on the new item
         setEditingCaptionIndex(newList.length - 1);
       }
     } catch (err) {
-      showToast('error', err?.message || 'Failed to upload photo.');
+      showToast('error', 'Failed to read image preview.');
     }
   };
 
-  // ── Batch upload multiple photos at once ──
+  // ── Batch select multiple photos (stores local previews) ──
   const handleBatchFileSelected = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
     setIsBatchUploading(true);
-    setBatchProgress({ current: 0, total: files.length });
+    setBatchProgress({ current: 0, total: files.length, actionText: 'Generating local previews...' });
 
-    const uploadedItems = [];
+    const localItems = [];
 
     for (let i = 0; i < files.length; i++) {
-      setBatchProgress({ current: i + 1, total: files.length });
       const file = files[i];
+      setBatchProgress({ current: i + 1, total: files.length, actionText: `Loading ${file.name}...` });
       try {
-        let url;
-        try {
-          url = await uploadImage(file);
-        } catch (err) {
-          if (err?.code === 'IMAGEKIT_NOT_CONFIGURED') {
-            url = await readFileAsBase64(file);
-          } else {
-            throw err;
-          }
-        }
+        const localUrl = await readFileAsBase64(file);
+        const tempId = `temp-${Date.now()}-${i}`;
+        
+        pendingUploadsRef.current[tempId] = file;
 
         // Clean caption default from filename
         const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
 
-        uploadedItems.push({
-          id: `${Date.now()}-${i}`,
-          imgUrl: url,
+        localItems.push({
+          id: tempId,
+          imgUrl: localUrl,
           captionEn: cleanName.charAt(0).toUpperCase() + cleanName.slice(1),
           captionNe: '',
           albumId: isAlbumView ? albumId : '',
         });
       } catch (err) {
-        console.error(`Failed to upload ${file.name}:`, err);
+        console.error(`Failed to read local preview for ${file.name}:`, err);
       }
     }
 
     setIsBatchUploading(false);
 
-    if (uploadedItems.length > 0) {
-      updateDraftArray('gallery', [...items, ...uploadedItems]);
-      showToast('success', `Successfully uploaded ${uploadedItems.length} photos!`);
+    if (localItems.length > 0) {
+      updateDraftArray('gallery', [...items, ...localItems]);
+      showToast('success', `Added ${localItems.length} photos to preview! Click Save in the Admin bar to save.`);
     } else {
-      showToast('error', 'Failed to upload selected photos.');
+      showToast('error', 'Failed to read selected photos.');
     }
 
     if (e.target) e.target.value = '';
@@ -1219,7 +1334,7 @@ export default function GallerySection({ content = {}, albumId = null }) {
                 />
                 <div>
                   <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>
-                    Batch uploading photos...
+                    {batchProgress.actionText || 'Batch uploading photos...'}
                   </div>
                   <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>
                     Processing {batchProgress.current} of {batchProgress.total} images
@@ -1235,7 +1350,7 @@ export default function GallerySection({ content = {}, albumId = null }) {
                   fontWeight: 700,
                 }}
               >
-                {Math.round((batchProgress.current / batchProgress.total) * 100)}%
+                {batchProgress.total > 0 ? Math.round((batchProgress.current / batchProgress.total) * 100) : 0}%
               </div>
             </div>
           )}
@@ -1344,6 +1459,63 @@ export default function GallerySection({ content = {}, albumId = null }) {
           {/* Bottom padding spacer in edit mode */}
           {isEditMode && visibleItems.length > 0 && <div style={{ marginBottom: '2rem' }} />}
         </>
+      )}
+
+      {/* ── Bulk / Pending Uploading processing spinner modal ── */}
+      {bulkUploading && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              background: 'white',
+              borderRadius: 16,
+              width: '100%',
+              maxWidth: 380,
+              padding: '32px 24px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 16
+            }}
+          >
+            <span
+              className="admin-spinner"
+              style={{
+                width: 44,
+                height: 44,
+                borderWidth: 3,
+                borderColor: 'rgba(121, 33, 60, 0.15)',
+                borderTopColor: '#79213C'
+              }}
+            />
+            <div>
+              <h3 className="serif" style={{ margin: '0 0 6px', fontSize: '1.25rem', color: '#79213C' }}>
+                Processing...
+              </h3>
+              <p style={{ margin: 0, color: '#475569', fontSize: '0.85rem', fontWeight: 600, lineHeight: 1.4 }}>
+                {bulkUploadProgress.actionText || 'Saving items...'}
+              </p>
+              {bulkUploadProgress.total > 0 && (
+                <p style={{ margin: '6px 0 0', color: '#94a3b8', fontSize: '0.78rem', fontWeight: 500 }}>
+                  Progress: {bulkUploadProgress.current} / {bulkUploadProgress.total} ({Math.round((bulkUploadProgress.current / bulkUploadProgress.total) * 100)}%)
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Image Cropping Modal ── */}

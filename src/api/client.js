@@ -1,5 +1,51 @@
 const API_BASE = '/api';
 
+// ─── Client-side SWR Cache ───────────────────────────────────────────────────
+// Keyed by URL path. Each entry: { data, fetchedAt, promise }
+// TTL: serve stale data for up to 60 s, silently revalidate after 10 s.
+const SWR_FRESH_MS  = 10_000;  // within 10 s → serve from cache, no fetch
+const SWR_STALE_MS  = 60_000;  // 10-60 s    → serve stale + background refresh
+const _swrCache = {};
+
+function swrGet(path, fetchFn) {
+  const entry = _swrCache[path];
+  const now   = Date.now();
+
+  if (entry) {
+    const age = now - entry.fetchedAt;
+    if (age < SWR_FRESH_MS) {
+      // Fresh — return instantly
+      return Promise.resolve(entry.data);
+    }
+    if (age < SWR_STALE_MS) {
+      // Stale — return old data now, revalidate in background
+      if (!entry.revalidating) {
+        entry.revalidating = true;
+        fetchFn().then(data => {
+          _swrCache[path] = { data, fetchedAt: Date.now(), revalidating: false };
+        }).catch(() => { entry.revalidating = false; });
+      }
+      return Promise.resolve(entry.data);
+    }
+  }
+
+  // No cache or expired — fetch normally
+  if (entry?.promise) return entry.promise;  // deduplicate in-flight
+  const promise = fetchFn().then(data => {
+    _swrCache[path] = { data, fetchedAt: Date.now(), revalidating: false };
+    delete _swrCache[path].promise;
+    return data;
+  });
+  _swrCache[path] = { ...(entry || {}), promise };
+  return promise;
+}
+
+/** Call this after any write so the next read is always fresh */
+function swrInvalidate(...paths) {
+  paths.forEach(p => { delete _swrCache[p]; });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const globalLoadingState = {
   activeRequests: 0,
   listeners: [],
@@ -151,20 +197,26 @@ export function checkAdminSession() {
   return request('/admin/session');
 }
 
-// Public content: cache: 'no-store' ensures Home page always gets fresh data
-// after an admin saves changes — no manual reload needed.
+// Public content — served from SWR cache for instant page loads.
+// Cache is invalidated on every admin save so changes propagate immediately.
 export function getPublicContent() {
-  return request('/content', { cache: 'no-store' }, { credentials: 'omit' });
+  return swrGet('/content', () =>
+    request('/content', {}, { credentials: 'omit' })
+  );
 }
 
 export function getAdminContent() {
-  return request('/admin/content');
+  return swrGet('/admin/content', () => request('/admin/content'));
 }
 
 export function updateAdminContent(data) {
   return request('/admin/content', {
     method: 'PUT',
     body: JSON.stringify(data),
+  }).then(result => {
+    // Invalidate both caches so next read always gets fresh data
+    swrInvalidate('/content', '/admin/content');
+    return result;
   });
 }
 

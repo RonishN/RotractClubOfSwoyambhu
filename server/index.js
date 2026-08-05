@@ -92,7 +92,7 @@ let cachedStore = null;          // alias kept for writeStore compatibility
 let cachedStoreAt = 0;
 let cachedStoreFull = null;
 let cachedStoreFullAt = 0;
-const CACHE_TTL_MS = 5000;
+const CACHE_TTL_MS = 60_000; // 60 s — client invalidates on every save so stale reads are safe
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
