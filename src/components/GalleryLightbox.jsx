@@ -3,6 +3,7 @@ import { useLang } from '../context/LanguageContext';
 
 export default function GalleryLightbox({
   images = [],
+  albumTitle = '',
   currentIndex = 0,
   isOpen = false,
   onClose,
@@ -15,9 +16,12 @@ export default function GalleryLightbox({
   const [copiedLink, setCopiedLink] = useState(false);
   const [touchStartX, setTouchStartX] = useState(null);
   const [touchEndX, setTouchEndX] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const containerRef = useRef(null);
   const thumbnailStripRef = useRef(null);
+  const indexRef = useRef(index);
+  indexRef.current = index;
 
   // Sync index when currentIndex prop changes
   useEffect(() => {
@@ -29,6 +33,26 @@ export default function GalleryLightbox({
 
   const total = images.length;
   const currentImage = images[index] || null;
+  const currentCaption = lang === 'en'
+    ? (currentImage?.captionEn || currentImage?.captionNe || '')
+    : (currentImage?.captionNe || currentImage?.captionEn || '');
+
+  // Autoplay slideshow
+  useEffect(() => {
+    if (!isOpen || !isPlaying || total <= 1) return;
+    const id = setInterval(() => {
+      const nextIdx = (indexRef.current + 1) % total;
+      setZoomLevel(1);
+      setIndex(nextIdx);
+      onNavigate?.(nextIdx);
+    }, 3500);
+    return () => clearInterval(id);
+  }, [isOpen, isPlaying, total, onNavigate]);
+
+  // Stop playback when the lightbox closes
+  useEffect(() => {
+    if (!isOpen) setIsPlaying(false);
+  }, [isOpen]);
 
   const goToPrev = useCallback(() => {
     if (total <= 1) return;
@@ -180,33 +204,76 @@ export default function GalleryLightbox({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Left: Counter badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div
-            style={{
-              background: 'rgba(158, 31, 66, 0.55)',
-              border: '1px solid rgba(232, 180, 58, 0.35)',
-              color: '#FCFBF7',
-              borderRadius: 30,
-              padding: '6px 14px',
-              fontSize: '0.86rem',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              backdropFilter: 'blur(8px)',
-            }}
-          >
-            <i className="fa-solid fa-image" style={{ color: '#E8B43A', fontSize: '0.85rem' }} />
-            <span>{index + 1} / {total}</span>
+        {/* Left: Album + caption context */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <div
+              style={{
+                background: 'rgba(158, 31, 66, 0.55)',
+                border: '1px solid rgba(232, 180, 58, 0.35)',
+                color: '#FCFBF7',
+                borderRadius: 30,
+                padding: '6px 14px',
+                fontSize: '0.86rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                backdropFilter: 'blur(8px)',
+              }}
+            >
+              <i className="fa-solid fa-image" style={{ color: '#E8B43A', fontSize: '0.85rem' }} />
+              <span>{index + 1} / {total}</span>
+            </div>
+            {albumTitle && (
+              <span style={{ color: '#E8B43A', fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.02em' }}>
+                <i className="fa-solid fa-folder" style={{ marginRight: 6, opacity: 0.8 }} />
+                {albumTitle}
+              </span>
+            )}
           </div>
+          {currentCaption && (
+            <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.85rem', lineHeight: 1.45, maxWidth: '70vw' }}>
+              {currentCaption}
+            </div>
+          )}
           <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', display: 'none' }} className="desktop-only">
             (Use Arrow Keys <i className="fa-solid fa-arrow-left" /> <i className="fa-solid fa-arrow-right" /> or swipe)
           </span>
         </div>
 
         {/* Right: Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {/* Slideshow toggle */}
+          <button
+            type="button"
+            className={`gallery-slideshow-btn ${isPlaying ? 'playing' : ''}`}
+            onClick={() => setIsPlaying(p => !p)}
+            title={isPlaying ? 'Pause Slideshow' : 'Play Slideshow'}
+            style={{
+              background: isPlaying ? 'rgba(232, 180, 58, 0.85)' : 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(232, 180, 58, 0.5)',
+              color: isPlaying ? '#3D0C1B' : 'white',
+              height: 36,
+              padding: '0 12px',
+              borderRadius: 20,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              cursor: 'pointer',
+              opacity: 0.9,
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.opacity = 1; }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = 0.9; }}
+          >
+            <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'}`} style={{ fontSize: '0.72rem' }} />
+            <span className="desktop-only">{isPlaying ? 'Pause' : 'Play'}</span>
+          </button>
+
           {/* Zoom controls */}
           <div
             style={{
@@ -356,6 +423,19 @@ export default function GalleryLightbox({
           if (e.target === e.currentTarget) onClose();
         }}
       >
+        {/* Edge preview: previous photo (desktop) */}
+        {total > 1 && zoomLevel === 1 && (
+          <button
+            type="button"
+            className="gallery-edge-preview prev"
+            onClick={(e) => { e.stopPropagation(); goToPrev(); }}
+            aria-label="Previous photo"
+          >
+            <img src={images[(index - 1 + total) % total].imgUrl} alt="" />
+            <i className="fa-solid fa-chevron-left" />
+          </button>
+        )}
+
         {/* Previous Button (<) */}
         {total > 1 && (
           <button
@@ -465,6 +545,19 @@ export default function GalleryLightbox({
               e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
             }}
           >
+            <i className="fa-solid fa-chevron-right" />
+          </button>
+        )}
+
+        {/* Edge preview: next photo (desktop) */}
+        {total > 1 && zoomLevel === 1 && (
+          <button
+            type="button"
+            className="gallery-edge-preview next"
+            onClick={(e) => { e.stopPropagation(); goToNext(); }}
+            aria-label="Next photo"
+          >
+            <img src={images[(index + 1) % total].imgUrl} alt="" />
             <i className="fa-solid fa-chevron-right" />
           </button>
         )}

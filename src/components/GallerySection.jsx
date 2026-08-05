@@ -23,6 +23,13 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+function isSameImage(url1, url2) {
+  if (!url1 || !url2) return false;
+  let u1 = url1.split('?')[0].replace(/\/tr:[^/]+\//g, '/');
+  let u2 = url2.split('?')[0].replace(/\/tr:[^/]+\//g, '/');
+  return u1.trim() === u2.trim();
+}
+
 function readFileAsBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -110,6 +117,9 @@ function SortableGalleryItem({
             border: '1px solid rgba(255,255,255,0.15)',
           }}
           onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
         >
           {/* Drag Handle */}
           <div
@@ -273,7 +283,7 @@ export default function GallerySection({ content = {}, albumId = null }) {
   //  - "All Photos"  → every photo
   //  - "All Albums"  → none (the grid shows album cards instead)
   const scopedItems = isAlbumView
-    ? items.filter(g => (g.albumId || '') === albumId)
+    ? items.filter(g => (g.albumId || '') === albumId && !isSameImage(g.imgUrl, activeAlbum?.coverImage))
     : (tab === 'photos' ? items : []);
 
   const visibleItems = scopedItems

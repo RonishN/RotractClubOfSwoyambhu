@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLang } from '../context/LanguageContext';
 import Header from '../components/Header';
@@ -14,7 +14,9 @@ export default function GalleryPage() {
   const [albums, setAlbums] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortKey, setSortKey] = useState('newest');
   const [scrollProgress, setScrollProgress] = useState(0);
+  const searchRef = useRef(null);
 
   // Re-run observer after loading data
   const ref = useFadeIn(0.15, [isLoading]);
@@ -28,6 +30,11 @@ export default function GalleryPage() {
     });
   }, []);
 
+  // Auto-focus search on desktop only
+  useEffect(() => {
+    if (window.innerWidth > 760) searchRef.current?.focus();
+  }, []);
+
   useEffect(() => {
     const onScroll = () => {
       const doc = document.documentElement;
@@ -39,7 +46,12 @@ export default function GalleryPage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const albumList = albums.filter(a => a && a.titleEn);
+  const albumList = albums.filter(a => a && a.titleEn).map((a, idx) => ({ a, idx }));
+
+  const albumSortDate = (item) => {
+    const m = String(item.a.id || '').match(/album-(\d+)/);
+    return m ? Number(m[1]) : item.idx;
+  };
 
   const matchesSearch = (album) => {
     if (!searchQuery.trim()) return true;
@@ -51,17 +63,25 @@ export default function GalleryPage() {
     );
   };
 
-  const filteredAlbums = albumList.filter(matchesSearch);
+  const sortedAlbumItems = [...albumList].sort((x, y) => {
+    if (sortKey === 'az') {
+      return (x.a.titleEn || '').localeCompare(y.a.titleEn || '');
+    }
+    const dx = albumSortDate(x);
+    const dy = albumSortDate(y);
+    return sortKey === 'oldest' ? dx - dy : dy - dx;
+  });
+
+  const filteredAlbums = sortedAlbumItems.filter(item => matchesSearch(item.a)).map(item => item.a);
 
   const albumCover = (a) => a.coverImage || gallery.find(g => (g.albumId || '') === a.id)?.imgUrl || null;
   const albumCount = (a) => gallery.filter(g => (g.albumId || '') === a.id).length;
-
-  const marqueeItems = albumList.slice(0, 10).map(a => a.titleEn).filter(Boolean);
 
   return (
     <>
       <Header />
       <div className="scroll-progress" style={{ width: `${scrollProgress}%` }} />
+      
       <main ref={ref} style={{ minHeight: '80vh', paddingBottom: '4rem' }} className="gallery-page">
         {/* ── HERO (split: title left, search right) ── */}
         <section className="gallery-hero">
@@ -83,49 +103,61 @@ export default function GalleryPage() {
             <div className="gallery-search-bar">
               <i className="fa-solid fa-magnifying-glass" />
               <input
+                ref={searchRef}
                 type="text"
                 placeholder={lang === 'en' ? 'Search albums...' : 'एल्बम खोज्नुहोस्...'}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="gallery-search-clear"
+                  aria-label={lang === 'en' ? 'Clear search' : 'खोजी मेट्नुहोस्'}
+                  onClick={() => { setSearchQuery(''); searchRef.current?.focus(); }}
+                >
+                  <i className="fa-solid fa-xmark" />
+                </button>
+              )}
             </div>
           </div>
         </section>
 
-        {/* ── Marquee ticker ── */}
-        {!isLoading && marqueeItems.length > 0 && (
-          <div className="marquee" aria-hidden="true">
-            <div className="marquee-track">
-              {[...marqueeItems, ...marqueeItems].map((t, i) => (
-                <span key={i} className="marquee-item">
-                  <i className="fa-solid fa-camera" /> {t}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
         <div className="gallery-albums-wrap">
-          {/* ── Section head ── */}
+          {/* ── Section head (left-aligned + sort) ── */}
           <div className="gallery-section-head">
-            <span className="gallery-section-kicker">
-              {lang === 'en' ? 'Photo Albums' : 'तस्बिर एल्बमहरू'}
-            </span>
-            <h2 className="gallery-section-title">
-              {lang === 'en' ? 'Albums' : 'एल्बमहरू'}
-            </h2>
-            {!isLoading && (
-              <span className="gallery-section-count">
-                {lang === 'en'
-                  ? `${filteredAlbums.length} album${filteredAlbums.length === 1 ? '' : 's'}`
-                  : `${filteredAlbums.length} एल्बमहरू`}
+            <div className="gallery-section-head-left">
+              <span className="gallery-section-kicker">
+                {lang === 'en' ? 'Photo Albums' : 'तस्बिर एल्बमहरू'}
               </span>
+              <h2 className="gallery-section-title">
+                {lang === 'en' ? 'Albums' : 'एल्बमहरू'}
+              </h2>
+              {!isLoading && (
+                <span className="gallery-section-count">
+                  <i className="fa-solid fa-images" />
+                  {lang === 'en'
+                    ? `${filteredAlbums.length} album${filteredAlbums.length === 1 ? '' : 's'}`
+                    : `${filteredAlbums.length} एल्बमहरू`}
+                </span>
+              )}
+            </div>
+
+            {!isLoading && (
+              <div className="gallery-sort">
+                <i className="fa-solid fa-arrow-down-wide-short" />
+                <select value={sortKey} onChange={e => setSortKey(e.target.value)} aria-label={lang === 'en' ? 'Sort albums' : 'एल्बमहरू क्रमबद्ध गर्नुहोस्'}>
+                  <option value="newest">{lang === 'en' ? 'Newest' : 'नयाँ'}</option>
+                  <option value="oldest">{lang === 'en' ? 'Oldest' : 'पुरानो'}</option>
+                  <option value="az">{lang === 'en' ? 'A – Z' : 'क – ज्ञ'}</option>
+                </select>
+              </div>
             )}
           </div>
 
           {isLoading ? (
             <div className="albums-landing-grid" style={{ margin: '0 auto' }} aria-busy="true" aria-label="Loading albums">
-              {Array.from({ length: 6 }).map((_, i) => (
+              {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="gallery-window" style={{ cursor: 'default', animation: 'none' }}>
                   <div className="gallery-window-photo">
                     <div className="sk brand" style={{ position: 'absolute', inset: 0, borderRadius: 0 }} />
