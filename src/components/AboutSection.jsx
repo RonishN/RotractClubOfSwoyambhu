@@ -38,43 +38,37 @@ const VALUES = [
 
 const DELAYS = ['delay-1', 'delay-2', 'delay-3', 'delay-4'];
 
-// Skeleton placeholder that matches the About text block layout
+// Skeleton placeholder that matches the About narrative column layout
+// (text → 4 value cards in one row → pull-quote)
 function AboutSkeleton() {
   return (
     <SkeletonTheme baseColor="#ede8e0" highlightColor="#f7f3ed">
       {/* About text paragraphs */}
-      <div style={{ maxWidth: 900, margin: '0 auto 4rem', textAlign: 'center' }}>
-        <Skeleton count={3} height={20} borderRadius={6} style={{ marginBottom: 12 }} />
-        <Skeleton width="70%" height={20} borderRadius={6} style={{ marginBottom: 24 }} />
-        <Skeleton count={2} height={20} borderRadius={6} style={{ marginBottom: 12 }} />
-        <Skeleton width="50%" height={20} borderRadius={6} />
+      <div className="about-text">
+        <Skeleton count={3} height={18} borderRadius={6} style={{ marginBottom: 12 }} />
+        <Skeleton width="62%" height={18} borderRadius={6} />
       </div>
 
-      {/* Value cards skeleton */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-        gap: '2.5rem',
-      }}>
-        {[...Array(4)].map((_, i) => (
-          <div
-            key={i}
-            style={{
-              height: 280,
-              background: 'white',
-              borderRadius: 20,
-              boxShadow: '0 15px 40px rgba(26,35,64,0.04)',
-              padding: '3rem 2rem',
-              textAlign: 'center',
-            }}
-          >
-            <Skeleton circle width={60} height={60} style={{ margin: '0 auto 1.5rem' }} />
-            <Skeleton height={22} width="60%" borderRadius={6} style={{ margin: '0 auto 0.8rem', display: 'block' }} />
-            <Skeleton count={2} height={16} borderRadius={6} style={{ marginBottom: 6 }} />
-            <Skeleton width="70%" height={16} borderRadius={6} />
+      {/* Value cards — same 4-up grid as the real values-grid, icons visible while loading */}
+      <div className="values-grid" style={{ pointerEvents: 'none' }}>
+        {VALUES.map((v) => (
+          <div key={v.iconClass} className="value-card-3d">
+            <div className="value-icon">
+              <i className={v.iconClass} style={{ fontSize: '1.6rem', color: '#B8532A' }} />
+            </div>
+            <h4 className="value-title"><Skeleton width="68%" /></h4>
+            <p className="value-desc">
+              <Skeleton count={2} height={13} borderRadius={6} style={{ marginBottom: 6 }} />
+            </p>
           </div>
         ))}
       </div>
+
+      {/* Pull-quote */}
+      <blockquote className="about-quote">
+        <span className="about-quote-mark" aria-hidden="true">"</span>
+        <p><Skeleton width="78%" height={18} borderRadius={6} /></p>
+      </blockquote>
     </SkeletonTheme>
   );
 }
@@ -90,6 +84,8 @@ export default function AboutSection({ content, isLoading }) {
   const aboutEn = displayContent.aboutEn || '';
   const aboutNe = displayContent.aboutNe || '';
   const aboutImage = displayContent.aboutImage || heroImage;
+  const aboutQuoteEn = displayContent.aboutQuoteEn || 'Service Above Self — inspired by the wisdom eyes of Swoyambhu, we rise with clarity and compassion.';
+  const aboutQuoteNe = displayContent.aboutQuoteNe || 'स्वार्थ भन्दा माथि सेवा — स्वयम्भूका ज्ञान नेत्रबाट प्रेरित, हामी स्पष्टता र करुणाका साथ अगाडि बढ्छौं।';
 
   return (
     <section id="about" className="lokta-texture" ref={ref}>
@@ -97,14 +93,19 @@ export default function AboutSection({ content, isLoading }) {
         {/* Editorial visual column (sticky on desktop) */}
         <div className="about-visual fade-in">
           <div className="about-visual-frame">
-            <EditableImage
-              src={aboutImage}
-              alt=""
-              className="about-visual-img"
-              style={{ borderRadius: '22px' }}
-              onChange={(url) => updateDraftField('aboutImage', url)}
-              cropType="portrait"
-            />
+            {isLoading ? (
+              <div className="sk brand" style={{ position: 'absolute', inset: 0, borderRadius: '22px' }} />
+            ) : (
+              <EditableImage
+                src={aboutImage}
+                alt=""
+                className="about-visual-img"
+                style={{ borderRadius: '22px' }}
+                onChange={(url) => updateDraftField('aboutImage', url)}
+                cropType="portrait"
+                fixedRatio={3 / 4}
+              />
+            )}
             <span className="about-visual-ring" aria-hidden="true">
               <span className="mandala-wheel"><span></span><span></span><span></span></span>
             </span>
@@ -115,7 +116,7 @@ export default function AboutSection({ content, isLoading }) {
           </div>
         </div>
 
-        {/* Narrative + values column */}
+        {/* Narrative column — text, value cards, and quote all sit right of the image */}
         <div className="about-body">
           <div className="section-header fade-in">
             <h2 className="section-title">
@@ -131,14 +132,14 @@ export default function AboutSection({ content, isLoading }) {
               <div className="about-text fade-in delay-1">
                 {lang === 'en'
                   ? (
-                    <EditableField field="aboutEn" multiline>
+                    <EditableField field="aboutEn" multiline maxWords={250}>
                       {aboutEn
                         ? aboutEn.split('\n\n').map((p, i) => <p key={i}>{p}</p>)
                         : null}
                     </EditableField>
                   )
                   : (
-                    <EditableField field="aboutNe" multiline>
+                    <EditableField field="aboutNe" multiline maxWords={250}>
                       {aboutNe
                         ? aboutNe.split('\n\n').map((p, i) => <p key={i} className="devanagari">{p}</p>)
                         : null}
@@ -146,16 +147,6 @@ export default function AboutSection({ content, isLoading }) {
                   )
                 }
               </div>
-
-              {/* Pull-quote */}
-              <blockquote className="about-quote fade-in delay-2">
-                <span className="about-quote-mark" aria-hidden="true">"</span>
-                <p>
-                  {lang === 'en'
-                    ? 'Service Above Self — inspired by the wisdom eyes of Swoyambhu, we rise with clarity and compassion.'
-                    : 'स्वार्थ भन्दा माथि सेवा — स्वयम्भूका ज्ञान नेत्रबाट प्रेरित, हामी स्पष्टता र करुणाका साथ अगाडि बढ्छौं।'}
-                </p>
-              </blockquote>
 
               {/* Numbered value list */}
               <div className="values-grid fade-in delay-1">
@@ -177,6 +168,16 @@ export default function AboutSection({ content, isLoading }) {
                   </div>
                 ))}
               </div>
+
+              {/* Pull-quote — sits below the value cards */}
+              <blockquote className="about-quote fade-in delay-2">
+                <span className="about-quote-mark" aria-hidden="true">"</span>
+                <p>
+                  <EditableField field={lang === 'en' ? 'aboutQuoteEn' : 'aboutQuoteNe'}>
+                    {lang === 'en' ? aboutQuoteEn : <span className="devanagari">{aboutQuoteNe}</span>}
+                  </EditableField>
+                </p>
+              </blockquote>
             </>
           )}
         </div>

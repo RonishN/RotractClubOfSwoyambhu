@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useEditMode } from '../context/EditModeContext';
-import { uploadImage } from '../api/client';
+import { uploadImage, queueImageDeletion } from '../api/client';
 import ImageCropModal from './ImageCropModal';
 
 // Placeholder SVG shown when an image URL is broken or missing
@@ -18,7 +18,7 @@ function readFileAsBase64(file) {
   });
 }
 
-export default function EditableImage({ src, alt, className, style, onChange, cropType, hideEditBadge }) {
+export default function EditableImage({ src, alt, className, style, onChange, cropType, fixedRatio, hideEditBadge }) {
   const { isEditMode, showToast } = useEditMode();
   const fileInputRef = useRef(null);
   
@@ -71,6 +71,12 @@ export default function EditableImage({ src, alt, className, style, onChange, cr
     setUploading(true);
     try {
       const url = await uploadImage(file);
+      // On a successful replacement, drop the old uploaded image from ImageKit
+      // so the library doesn't fill up with orphaned files (deferred until the
+      // content save, and the server keeps it if it's still referenced).
+      if (src && src !== url && src.startsWith('http')) {
+        queueImageDeletion(src);
+      }
       onChange?.(url);
       showToast('success', 'Image uploaded successfully!');
     } catch (err) {
@@ -201,6 +207,7 @@ export default function EditableImage({ src, alt, className, style, onChange, cr
         <ImageCropModal
           imageSrc={tempImageSrc}
           cropType={cropType}
+          fixedRatio={fixedRatio}
           onConfirm={handleCropConfirm}
           onClose={() => setTempImageSrc(null)}
         />

@@ -18,6 +18,7 @@ export default function InitiativesSection({ content = {}, isLoading = false }) 
   // Use draft when inside admin provider; fall back to content prop on public page
   const hasDraft = draft && Object.keys(draft).length > 0;
   const initiativesList = hasDraft ? (draft.initiatives || []) : (content?.initiatives || []);
+  const useCarousel = initiativesList.length > 3;
 
   const handleUpdate = (index, field, value) => {
     const newList = [...initiativesList];
@@ -62,19 +63,24 @@ export default function InitiativesSection({ content = {}, isLoading = false }) 
 
   if (isLoading) {
     return (
-      <section id="initiatives" className="lokta-texture" style={{ padding: '10rem 5%' }}>
-        <div className="section-header">
-          <h2 className="section-title"><Skeleton width={250} /></h2>
+      <section id="initiatives" className="lokta-texture" style={{ padding: '4rem 0 6.5rem' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 5%' }}>
+          <div className="section-header" style={{ opacity: 1, transform: 'none' }}>
+            <h2 className="section-title"><Skeleton width={250} /></h2>
+            <TraditionalDivider style={{ margin: '0.8rem auto 0.5rem' }} />
+          </div>
+          <div className="initiatives-grid" style={{ marginTop: '2.5rem' }}>
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="init-card">
+                <div className="init-icon"><Skeleton circle width={50} height={50} /></div>
+                <h4 className="init-title"><Skeleton width="60%" /></h4>
+                <p className="init-desc"><Skeleton count={3} /></p>
+                <span className="init-link"><Skeleton width={90} height={14} /></span>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="initiatives-grid">
-          {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="init-card">
-              <div className="init-icon" style={{ display: 'inline-block' }}><Skeleton circle width={50} height={50} /></div>
-              <h4 className="init-title"><Skeleton width="60%" /></h4>
-              <p className="init-desc"><Skeleton count={3} /></p>
-            </div>
-          ))}
-        </div>
+        <SandyDivider bottomColor="#F5ECDA" />
       </section>
     );
   }
@@ -105,13 +111,24 @@ export default function InitiativesSection({ content = {}, isLoading = false }) 
           <svg viewBox="0 0 24 24"><path d={init.iconSvg} /></svg>
         </div>
         <h4 className={`init-title ${lang !== 'en' ? 'devanagari' : ''}`}>
-          <EditableField value={lang === 'en' ? init.titleEn : init.titleNe} onChange={(val) => handleUpdate(i, lang === 'en' ? 'titleEn' : 'titleNe', val)}>
+          <EditableField
+            value={init.titleEn}
+            onChange={(val) => handleUpdate(i, 'titleEn', val)}
+            neValue={init.titleNe}
+            onChangeNe={(val) => handleUpdate(i, 'titleNe', val)}
+          >
             {lang === 'en' ? init.titleEn : init.titleNe}
           </EditableField>
         </h4>
         <p className="init-desc">
-          <EditableField multiline value={init.desc} onChange={(val) => handleUpdate(i, 'desc', val)}>
-            {init.desc}
+          <EditableField
+            multiline
+            value={init.desc}
+            onChange={(val) => handleUpdate(i, 'desc', val)}
+            neValue={init.descNe}
+            onChangeNe={(val) => handleUpdate(i, 'descNe', val)}
+          >
+            {lang === 'en' ? init.desc : (init.descNe || init.desc)}
           </EditableField>
         </p>
         <span className="init-link">
@@ -123,8 +140,8 @@ export default function InitiativesSection({ content = {}, isLoading = false }) 
   );
 
   return (
-    <section id="initiatives" ref={ref} className="lokta-texture" style={{ padding: initiativesList.length > 3 ? '0' : '4rem 0' }}>
-      {initiativesList.length > 3 ? (
+    <section id="initiatives" ref={ref} className="lokta-texture" style={{ padding: useCarousel ? '0 0 7rem' : '4rem 0 6.5rem' }}>
+      {useCarousel ? (
         <HorizontalScrollCarousel 
           items={initiativesList} 
           renderItem={renderInitiativeCard} 
@@ -141,7 +158,7 @@ export default function InitiativesSection({ content = {}, isLoading = false }) 
       )}
 
       {isEditMode && (
-        <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+        <div style={{ textAlign: 'center', marginTop: '2rem', position: 'relative', zIndex: 6 }}>
           <button 
             onClick={handleAdd}
             style={{

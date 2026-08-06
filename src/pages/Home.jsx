@@ -62,7 +62,7 @@ export default function Home() {
         <TeamSection  content={content || {}} isLoading={isLoading} />
         <InitiativesSection content={content || {}} isLoading={isLoading} />
         <EventsSection      content={content || {}} />
-        <ContactSection content={content || {}} />
+        <ContactSection content={content || {}} isLoading={isLoading} />
       </main>
       <Footer />
       <MobileBottomNav />

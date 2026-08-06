@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { checkAdminSession, updateAdminContent, restoreToDefaults } from '../api/client';
+import { checkAdminSession, updateAdminContent, restoreToDefaults, flushPendingImageDeletions } from '../api/client';
 
 const EditModeContext = createContext();
 
@@ -11,6 +11,14 @@ export function EditModeProvider({ children, initialContent = {} }) {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
+
+  // Always-fresh mirror of `draft` so save flows can serialize the latest value
+  // after async pre-save steps (e.g. gallery bulk upload) mutate it.
+  const draftRef = useRef(initialContent);
+
+  // Components (e.g. GallerySection) register async steps that must complete
+  // before the content payload is serialized and sent to the server.
+  const preSaveHooksRef = useRef(new Set());
 
   // Track whether we have already seeded from initialContent.
   // After the first seed, we never overwrite draft/original from the prop
@@ -31,6 +39,7 @@ export function EditModeProvider({ children, initialContent = {} }) {
     seededRef.current = true;
     setOriginalContent(initialContent);
     setDraft(initialContent);
+    draftRef.current = initialContent;
     originalJsonRef.current = JSON.stringify(initialContent);
     draftJsonRef.current = JSON.stringify(initialContent);
     setHasChanges(false);
@@ -69,6 +78,13 @@ export function EditModeProvider({ children, initialContent = {} }) {
     setToast(null);
   }, []);
 
+  const registerPreSaveHook = useCallback((fn) => {
+    preSaveHooksRef.current.add(fn);
+    return () => {
+      preSaveHooksRef.current.delete(fn);
+    };
+  }, []);
+
   // Clean up timer on unmount
   useEffect(() => {
     return () => {
@@ -93,6 +109,7 @@ export function EditModeProvider({ children, initialContent = {} }) {
 
   const discard = useCallback(() => {
     setDraft(originalContent);
+    draftRef.current = originalContent;
     draftJsonRef.current = originalJsonRef.current;
     setHasChanges(false);
     setIsEditMode(false);
@@ -102,13 +119,23 @@ export function EditModeProvider({ children, initialContent = {} }) {
     if (saving) return;
     setSaving(true);
     try {
-      const result = await updateAdminContent(draft);
+      // Let components (e.g. gallery bulk upload) push local preview images to
+      // the remote before we serialize the draft — otherwise base64 data URLs
+      // end up in the saved payload and blow the server body limit (413).
+      for (const hook of Array.from(preSaveHooksRef.current)) {
+        await hook();
+      }
+      const result = await updateAdminContent(draftRef.current);
       const saved = result.websiteData;
       setOriginalContent(saved);
       setDraft(saved);
+      draftRef.current = saved;
       originalJsonRef.current = JSON.stringify(saved);
       draftJsonRef.current = JSON.stringify(saved);
       setHasChanges(false);
+      // Now that the saved content is live, clean up ImageKit files that are no
+      // longer referenced anywhere (shared images are kept by the server).
+      await flushPendingImageDeletions();
       showToast('success', 'Changes saved successfully!');
       setIsEditMode(false);
     } catch (err) {
@@ -124,7 +151,7 @@ export function EditModeProvider({ children, initialContent = {} }) {
     } finally {
       setSaving(false);
     }
-  }, [draft, saving, showToast]);
+  }, [saving, showToast]);
 
   const handleRestoreDefaults = useCallback(async () => {
     if (saving) return;
@@ -134,6 +161,7 @@ export function EditModeProvider({ children, initialContent = {} }) {
       const restored = result.websiteData;
       setOriginalContent(restored);
       setDraft(restored);
+      draftRef.current = restored;
       originalJsonRef.current = JSON.stringify(restored);
       draftJsonRef.current = JSON.stringify(restored);
       setHasChanges(false);
@@ -154,6 +182,7 @@ export function EditModeProvider({ children, initialContent = {} }) {
   const updateDraftField = useCallback((field, value) => {
     setDraft(prev => {
       const next = { ...prev, [field]: value };
+      draftRef.current = next;
       draftJsonRef.current = JSON.stringify(next);
       setHasChanges(draftJsonRef.current !== originalJsonRef.current);
       return next;
@@ -163,6 +192,7 @@ export function EditModeProvider({ children, initialContent = {} }) {
   const updateDraftArray = useCallback((arrayField, newList) => {
     setDraft((prev) => {
       const next = { ...prev, [arrayField]: newList };
+      draftRef.current = next;
       draftJsonRef.current = JSON.stringify(next);
       setHasChanges(draftJsonRef.current !== originalJsonRef.current);
       return next;
@@ -177,9 +207,11 @@ export function EditModeProvider({ children, initialContent = {} }) {
       const saved = result.websiteData;
       setOriginalContent(saved);
       setDraft(saved);
+      draftRef.current = saved;
       originalJsonRef.current = JSON.stringify(saved);
       draftJsonRef.current = JSON.stringify(saved);
       setHasChanges(false);
+      await flushPendingImageDeletions();
       return saved;
     } catch (err) {
       if (err?.status === 401) {
@@ -200,6 +232,7 @@ export function EditModeProvider({ children, initialContent = {} }) {
       draft,
       updateDraftField,
       updateDraftArray,
+      registerPreSaveHook,
       persistContent,
       saveAll,
       saving,
@@ -219,7 +252,15 @@ export function useEditMode() {
   const context = useContext(EditModeContext);
   if (!context) {
     // If used outside of a provider (e.g., on the public / route), default to read-only
-    return { isEditMode: false, draft: {}, showToast: () => {} };
+    return {
+      isEditMode: false,
+      draft: {},
+      showToast: () => {},
+      updateDraftField: () => {},
+      updateDraftArray: () => {},
+      registerPreSaveHook: () => () => {},
+      persistContent: () => Promise.resolve(),
+    };
   }
   return context;
 }

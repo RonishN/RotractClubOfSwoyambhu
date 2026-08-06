@@ -59,7 +59,7 @@ export default function AdminEdit() {
     // (prop) in read-only mode. The `initialContent` seeds the draft once.
     <EditModeProvider initialContent={content || {}}>
       <BeforeUnloadGuard />
-      <div className="admin-mode">
+      <div className="admin-mode home-page">
         <style>{`
           /* Dynamically push Header and main below the AdminBar */
           .admin-mode header {

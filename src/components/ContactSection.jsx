@@ -4,10 +4,11 @@ import { useEditMode } from '../context/EditModeContext';
 import useFadeIn from '../hooks/useFadeIn';
 import { subscribeToEvents } from '../api/client';
 import EditableImage from './EditableImage';
+import EditableField from './EditableField';
 import StupaSkyline from './StupaSkyline';
 import heroImage from '../assets/images/heroimage.jpg';
 
-export default function ContactSection({ content }) {
+export default function ContactSection({ content, isLoading = false }) {
   const { lang } = useLang();
   const { draft, updateDraftField } = useEditMode();
   const ref = useFadeIn();
@@ -20,6 +21,8 @@ export default function ContactSection({ content }) {
   const hasDraft = draft && Object.keys(draft).length > 0;
   const displayContent = hasDraft ? draft : (content || {});
   const contactImage = displayContent.contactImage || heroImage;
+  const contactQuoteEn = displayContent.contactQuoteEn || 'Service Above Self — in the shadow of the Swoyambhu Stupa.';
+  const contactQuoteNe = displayContent.contactQuoteNe || 'स्वार्थ भन्दा माथि सेवा — स्वयम्भू स्तूपको छहारीमा।';
 
   const handleSubscribe = async (e) => {
     e.preventDefault();
@@ -89,14 +92,19 @@ export default function ContactSection({ content }) {
           {/* Dark maroon visual column */}
           <div className="contact-visual fade-in" style={{ position: 'relative' }}>
             <div className="contact-visual-frame">
-              <EditableImage
-                src={contactImage}
-                alt={lang === 'en' ? 'Swoyambhu Stupa' : 'स्वयम्भू स्तूप'}
-                className="contact-visual-img"
-                style={{ borderRadius: '24px' }}
-                onChange={(url) => updateDraftField('contactImage', url)}
-                cropType="portrait"
-              />
+              {isLoading ? (
+                <div className="sk brand" style={{ position: 'absolute', inset: 0 }} />
+              ) : (
+                <EditableImage
+                  src={contactImage}
+                  alt={lang === 'en' ? 'Swoyambhu Stupa' : 'स्वयम्भू स्तूप'}
+                  className="contact-visual-img"
+                  style={{ borderRadius: '24px' }}
+                  onChange={(url) => updateDraftField('contactImage', url)}
+                  cropType="portrait"
+                  fixedRatio={3 / 4}
+                />
+              )}
               <div className="contact-visual-shade" />
               <div className="contact-visual-mandala" aria-hidden="true">
                 <span className="mandala-wheel"><span></span><span></span><span></span></span>
@@ -104,7 +112,9 @@ export default function ContactSection({ content }) {
               <div className="contact-visual-quote">
                 <span className="contact-visual-quote-big">"</span>
                 <span className="contact-visual-quote-text">
-                  {lang === 'en' ? 'Service Above Self — in the shadow of the Swoyambhu Stupa.' : 'स्वार्थ भन्दा माथि सेवा — स्वयम्भू स्तूपको छहारीमा।'}
+                  <EditableField field={lang === 'en' ? 'contactQuoteEn' : 'contactQuoteNe'}>
+                    {lang === 'en' ? contactQuoteEn : <span className="devanagari">{contactQuoteNe}</span>}
+                  </EditableField>
                 </span>
               </div>
             </div>

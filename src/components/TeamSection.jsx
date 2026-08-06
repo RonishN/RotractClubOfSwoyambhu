@@ -21,24 +21,31 @@ export default function TeamSection({ content = {}, isLoading = false }) {
 
   const hasDraft = draft && Object.keys(draft).length > 0;
   const membersList = hasDraft ? (draft.team || []) : (content?.team || []);
+  const useCarousel = membersList.length > 5;
 
   if (isLoading) {
     return (
-      <section id="team" className="lokta-texture" style={{ padding: '8rem 5%' }}>
-        <div className="section-header">
-          <h2 className="section-title"><Skeleton width={250} /></h2>
-        </div>
-        <div className="team-grid">
-          {[1, 2, 3, 4, 5].map(i => (
-            <div key={i} className="team-card">
-              <div className="avatar-placeholder" style={{ backgroundColor: 'transparent', border: 'none', boxShadow: 'none' }}>
-                <Skeleton circle width="100%" height="100%" />
+      <section id="team" className="lokta-texture" style={{ padding: '4.5rem 0 6.5rem' }}>
+        <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '0 5%' }}>
+          <div className="section-header" style={{ opacity: 1, transform: 'none' }}>
+            <h2 className="section-title"><Skeleton width={250} /></h2>
+            <TraditionalDivider style={{ margin: '0.8rem auto 0.5rem' }} />
+          </div>
+          <div className="team-grid" style={{ marginTop: '2.8rem' }}>
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="team-card">
+                <div className="team-avatar-wrapper">
+                  <div className="avatar-placeholder">
+                    <Skeleton circle width="100%" height="100%" />
+                  </div>
+                </div>
+                <h4 className="team-name" style={{ marginTop: '1rem' }}><Skeleton width="70%" /></h4>
+                <div className="team-role" style={{ margin: '0.5rem auto 0' }}><Skeleton width="50%" /></div>
               </div>
-              <h3 className="team-name" style={{ marginTop: '1rem' }}><Skeleton width="70%" /></h3>
-              <p className="team-role" style={{ margin: '0.5rem auto 0' }}><Skeleton width="50%" /></p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
+        <SandyDivider bottomColor="#FBF5E9" />
       </section>
     );
   }
@@ -141,16 +148,20 @@ export default function TeamSection({ content = {}, isLoading = false }) {
             <EditableField 
               value={m.name} 
               onChange={(val) => handleUpdate(i, 'name', val)}
+              neValue={m.nameNe}
+              onChangeNe={(val) => handleUpdate(i, 'nameNe', val)}
             >
-              {m.name}
+              {lang === 'en' ? m.name : (m.nameNe || m.name)}
             </EditableField>
           </h4>
 
           {/* Classic Magenta / Pink Role Pill Badge */}
           <div className="team-role">
             <EditableField 
-              value={lang === 'en' ? m.roleEn : m.roleNe} 
-              onChange={(val) => handleUpdate(i, lang === 'en' ? 'roleEn' : 'roleNe', val)}
+              value={m.roleEn} 
+              onChange={(val) => handleUpdate(i, 'roleEn', val)}
+              neValue={m.roleNe}
+              onChangeNe={(val) => handleUpdate(i, 'roleNe', val)}
             >
               {lang === 'en' ? m.roleEn : <span className="devanagari">{m.roleNe}</span>}
             </EditableField>
@@ -225,8 +236,8 @@ export default function TeamSection({ content = {}, isLoading = false }) {
   );
 
   return (
-    <section id="team" ref={ref} className="lokta-texture" style={{ padding: membersList.length > 5 ? '0' : '4.5rem 0 5rem' }}>
-      {membersList.length > 5 ? (
+    <section id="team" ref={ref} className="lokta-texture" style={{ padding: useCarousel ? '0 0 7rem' : '4.5rem 0 6.5rem' }}>
+      {useCarousel ? (
         <HorizontalScrollCarousel 
           items={membersList} 
           renderItem={renderMemberCard} 
@@ -243,7 +254,7 @@ export default function TeamSection({ content = {}, isLoading = false }) {
       )}
 
       {isEditMode && (
-        <div style={{ textAlign: 'center', marginTop: '2.5rem', padding: membersList.length > 5 ? '0 5%' : '0' }}>
+        <div style={{ textAlign: 'center', marginTop: '2.5rem', padding: useCarousel ? '0 5%' : '0', position: 'relative', zIndex: 6 }}>
           <button 
             onClick={handleAdd}
             style={{

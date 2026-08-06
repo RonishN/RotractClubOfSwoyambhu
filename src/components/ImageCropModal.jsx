@@ -12,8 +12,8 @@ import { createPortal } from 'react-dom';
  * - onConfirm: callback passing the cropped Blob/File
  * - onClose: callback when modal is cancelled
  */
-export default function ImageCropModal({ imageSrc, cropType, onConfirm, onClose }) {
-  const [activeRatio, setActiveRatio] = useState(cropType === 'circle' ? 1 : (16 / 9));
+export default function ImageCropModal({ imageSrc, cropType, fixedRatio, onConfirm, onClose }) {
+  const [activeRatio, setActiveRatio] = useState(fixedRatio || (cropType === 'circle' ? 1 : (16 / 9)));
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -267,8 +267,8 @@ export default function ImageCropModal({ imageSrc, cropType, onConfirm, onClose 
           </div>
         </div>
 
-        {/* Aspect Ratio Selector (only if not circle) */}
-        {cropType !== 'circle' && (
+        {/* Aspect Ratio Selector (hidden when a fixed ratio is locked) */}
+        {!fixedRatio && cropType !== 'circle' && (
           <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 4 }}>
             {(cropType === 'landscape' ? [
               { label: '16:9', val: 16/9 },

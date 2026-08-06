@@ -294,7 +294,7 @@ export default function GalleryAlbumPage() {
                   </div>
 
                   {/* Description */}
-                  {album.description && (
+                  {(album.description || album.descriptionNe) && (
                     <p style={{
                       marginTop: 14,
                       color: 'rgba(255,255,255,0.85)',
@@ -303,7 +303,7 @@ export default function GalleryAlbumPage() {
                       maxWidth: 620,
                       textShadow: '0 1px 8px rgba(0,0,0,0.85)',
                     }}>
-                      {album.description}
+                      {lang === 'en' ? album.description || album.descriptionNe : album.descriptionNe || album.description}
                     </p>
                   )}
                 </>

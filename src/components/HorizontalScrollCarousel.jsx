@@ -9,11 +9,24 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
   const pinnedRef = useRef(null);
   const trackRef = useRef(null);
   const touchTrackRef = useRef(null);
+  const progressBarRef = useRef(null);
+  const progressLabelRef = useRef(null);
 
   const [maxScroll, setMaxScroll] = useState(0);
-  const [currentProgress, setCurrentProgress] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const [activeMobileIndex, setActiveMobileIndex] = useState(0);
+
+  // Drive the progress bar + % label through the DOM (refs) instead of React
+  // state — updating state on every scroll frame re-renders the whole carousel
+  // and causes the jitter/glitchy horizontal scrolling.
+  const paintProgress = (progress) => {
+    if (progressBarRef.current) {
+      progressBarRef.current.style.transform = `scaleX(${progress})`;
+    }
+    if (progressLabelRef.current) {
+      progressLabelRef.current.textContent = `${String(Math.round(progress * 100)).padStart(2, '0')}%`;
+    }
+  };
 
   // Detect mobile view (< 768px)
   useEffect(() => {
@@ -33,6 +46,7 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
 
   // Measure how far the track overflows the visible content box → horizontal travel distance
   useEffect(() => {
+    let lastScroll = -1;
     const measure = () => {
       if (!trackRef.current || !trackRef.current.parentElement) return;
       const track = trackRef.current;
@@ -42,7 +56,11 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
       const padRight = parseFloat(cs.paddingRight) || 0;
       const contentWidth = wrap.clientWidth - padLeft - padRight;
       const overflow = track.scrollWidth - contentWidth + 48; // breathing room so the last card is never clipped
-      setMaxScroll(Math.max(0, overflow));
+      const next = Math.max(0, overflow);
+      if (next !== lastScroll) {
+        lastScroll = next;
+        setMaxScroll(next);
+      }
     };
 
     // Measure after layout settles, on late loads, images and resize
@@ -80,12 +98,14 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
         trigger: el,
         start: 'top top',
         end: () => `+=${maxScroll}`,
-        scrub: 1,
+        scrub: 1.4,
         pin: true,
         anticipatePin: 1,
         invalidateOnRefresh: true,
-        onUpdate: (self) => setCurrentProgress(self.progress),
-        onRefreshInit: () => setCurrentProgress(0)
+        onUpdate: (self) => {
+          paintProgress(self.progress);
+        },
+        onRefreshInit: () => paintProgress(0)
       }
     });
     const st = tween.scrollTrigger;
@@ -97,7 +117,7 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
       window.removeEventListener('load', refresh);
       if (st) st.kill();
       tween.kill();
-      setCurrentProgress(0);
+      paintProgress(0);
     };
   }, [isMobile, maxScroll, items]);
 
@@ -211,9 +231,7 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
                 <span>Scroll to explore</span>
                 <i className="fa-solid fa-arrow-right-long" style={{ fontSize: '0.85rem' }} />
               </span>
-              <span className="carousel-progress-count">
-                {String(Math.round(currentProgress * 100)).padStart(2, '0')}%
-              </span>
+              <span ref={progressLabelRef} className="carousel-progress-count">00%</span>
             </div>
             <div style={{
               width: '100%',
@@ -224,11 +242,12 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
               position: 'relative'
             }}>
               <div
+                ref={progressBarRef}
                 style={{
                   width: '100%',
                   height: '100%',
                   background: 'linear-gradient(90deg, #EE7F13 0%, #DFA92E 55%, #B8532A 100%)',
-                  transform: `scaleX(${currentProgress})`,
+                  transform: 'scaleX(0)',
                   transformOrigin: 'left',
                   borderRadius: '999px',
                   boxShadow: '0 0 16px rgba(238, 127, 19, 0.6)'

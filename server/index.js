@@ -51,6 +51,10 @@ const websiteDefaults = {
   aboutEn: 'Rotaract is a global movement of young leaders who are developing innovative solutions to the world\'s most pressing challenges. We bring together adults ages 18–30 to take action in their communities, develop their leadership and professional skills, and have fun.\n\nThe Rotaract Club of Swoyambhu is deeply rooted in the spiritual and cultural heart of Kathmandu. Inspired by the wisdom eyes of Swoyambhu, we aim to serve with clarity, compassion, and a profound respect for our heritage.',
   aboutImage: '',
   contactImage: '',
+  contactQuoteEn: 'Service Above Self — in the shadow of the Swoyambhu Stupa.',
+  contactQuoteNe: 'स्वार्थ भन्दा माथि सेवा — स्वयम्भू स्तूपको छहारीमा।',
+  aboutQuoteEn: 'Service Above Self — inspired by the wisdom eyes of Swoyambhu, we rise with clarity and compassion.',
+  aboutQuoteNe: 'स्वार्थ भन्दा माथि सेवा — स्वयम्भूका ज्ञान नेत्रबाट प्रेरित, हामी स्पष्टता र करुणाका साथ अगाडि बढ्छौं।',
   aboutNe: 'रोटर्याक्ट युवा नेताहरूको एक विश्वव्यापी आन्दोलन हो जो संसारका सबैभन्दा ठूला चुनौतीहरूको लागि अभिनव समाधानहरू विकास गर्दैछ। हामी समुदायमा कार्य गर्न, नेतृत्व र व्यावसायिक सीपहरू विकास गर्न १८–३० वर्षका युवाहरूलाई एकसाथ ल्याउँछौं।\n\nस्वयम्भू रोटर्याक्ट क्लब काठमाडौंको आध्यात्मिक र सांस्कृतिक केन्द्रमा गहिरो जरा गाडेको छ। स्वयम्भूका ज्ञान नेत्रहरूबाट प्रेरित भएर, हामी स्पष्टता, करुणा र हाम्रो सम्पदाप्रति गहिरो सम्मानका साथ सेवा गर्ने लक्ष्य राख्छौं।',
   team: [
     { id: '1', name: 'Rtr. Subina Magar', roleEn: 'President', roleNe: 'अध्यक्ष', imgUrl: '/src/assets/images/president.jpg' },
@@ -59,9 +63,9 @@ const websiteDefaults = {
     { id: '4', name: 'Rtr. Smriti Adhikari', roleEn: 'Professional Development Chair', roleNe: 'कोषाध्यक्ष', imgUrl: '/src/assets/images/pdc.jpg' },
   ],
   initiatives: [
-    { id: '1', titleEn: 'Community Service', titleNe: 'समाज सेवा', desc: 'Grassroots level projects focusing on education, health, and sustainable environment in the local Swoyambhu area and beyond.', iconSvg: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' },
-    { id: '2', titleEn: 'Professional Development', titleNe: 'व्यावसायिक विकास', desc: 'Workshops, mentorship programs, and networking events designed to elevate the skills and career trajectories of our youth.', iconSvg: 'M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z' },
-    { id: '3', titleEn: 'Cultural Preservation', titleNe: 'संस्कृति संरक्षण', desc: 'Initiatives dedicated to maintaining the aesthetic and spiritual heritage of Swoyambhu, from clean-ups to awareness campaigns.', iconSvg: 'M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3zm5 15h-2v-6H9v6H7v-7.81l5-4.5 5 4.5V18z' },
+    { id: '1', titleEn: 'Community Service', titleNe: 'समाज सेवा', desc: 'Grassroots level projects focusing on education, health, and sustainable environment in the local Swoyambhu area and beyond.', descNe: 'स्थानीय स्वयम्भू क्षेत्र र त्यसभन्दा बाहिरका शिक्षा, स्वास्थ्य र दिगो वातावरणमा केन्द्रित जमिनी तहका परियोजनाहरू।', iconSvg: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' },
+    { id: '2', titleEn: 'Professional Development', titleNe: 'व्यावसायिक विकास', desc: 'Workshops, mentorship programs, and networking events designed to elevate the skills and career trajectories of our youth.', descNe: 'युवाहरूको सीप र करियर यात्रा उकास्न डिजाइन गरिएका कार्यशाला, परामर्श कार्यक्रम र नेटवर्किङ कार्यक्रमहरू।', iconSvg: 'M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z' },
+    { id: '3', titleEn: 'Cultural Preservation', titleNe: 'संस्कृति संरक्षण', desc: 'Initiatives dedicated to maintaining the aesthetic and spiritual heritage of Swoyambhu, from clean-ups to awareness campaigns.', descNe: 'स्वयम्भूको सौन्दर्य र आध्यात्मिक सम्पदा कायम राख्न समर्पित पहलहरू — सफाइदेखि चेतना अभियानसम्म।', iconSvg: 'M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3zm5 15h-2v-6H9v6H7v-7.81l5-4.5 5 4.5V18z' },
   ],
   events: [
     { id: '1', day: '15', month: 'OCT', titleEn: 'Heritage Clean-up Drive', titleNe: 'सम्पदा सरसफाई अभियान', desc: 'Join us as we clean the surroundings of the Swoyambhu Stupa to preserve its sanctity and beauty.' },
@@ -87,6 +91,130 @@ const imagekit = new ImageKit({
 });
 
 const upload = multer({ storage: multer.memoryStorage() });
+
+// ── ImageKit cleanup helpers ────────────────────────────────────────────────
+// Extract the managed file path (e.g. /rotaract/img.jpg) from a stored image URL.
+function extractImageKitPath(url) {
+  try {
+    const base = process.env.IMAGEKIT_URL_ENDPOINT;
+    if (!base || !url) return null;
+    const normBase = base.endsWith('/') ? base : `${base}/`;
+    let clean = String(url).split('?')[0];
+    // Strip ImageKit transformation prefixes like /tr:w-800,h-600/
+    clean = clean.replace(/\/tr:[^/]+\//g, '/');
+    let filePath;
+    if (clean.startsWith(normBase)) {
+      filePath = `/${clean.slice(normBase.length)}`.replace(/\/{2,}/g, '/');
+    } else {
+      // Tolerate old-format URLs (e.g. https://ik.imagekit.io/<id>/rotaract/...) that
+      // predate a urlEndpoint path-prefix change.
+      const idx = clean.indexOf('/rotaract/');
+      filePath = idx >= 0 ? clean.slice(idx) : null;
+    }
+    return filePath && filePath.startsWith('/rotaract/') ? filePath : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve the ImageKit file entry for an app-managed path by listing the
+ * /rotaract folder (ImageKit's `path` search field matches folders, not files,
+ * so a full-path searchQuery would never match). Returns the file or null.
+ */
+async function findImageKitFile(filePath) {
+  if (!filePath || !filePath.startsWith('/rotaract/')) return null;
+  try {
+    const files = await imagekit.listFiles({ path: '/rotaract', limit: 1000 });
+    return Array.isArray(files)
+      ? files.find((f) => f.filePath === filePath || (f.url || '').split('?')[0].endsWith(filePath))
+      : null;
+  } catch (err) {
+    logWarn(`ImageKit file lookup failed (non-fatal): ${err.message}`);
+    return null;
+  }
+}
+
+/**
+ * Best-effort delete of an app-uploaded image from ImageKit.
+ * ImageKit's delete API needs a fileId, so we resolve the path via the list API
+ * first, then delete by fileId. Never throws — returns a result object.
+ */
+async function deleteImageFromImageKit(url) {
+  const filePath = extractImageKitPath(url);
+  if (!filePath) return { deleted: false, reason: 'NOT_MANAGED' };
+
+  const ikPrivateKey = process.env.IMAGEKIT_PRIVATE_KEY || '';
+  const isIkConfigured =
+    ikPrivateKey && !['your_private_key', 'dummy_private_key'].includes(ikPrivateKey);
+  if (!isIkConfigured) return { deleted: false, reason: 'IMAGEKIT_NOT_CONFIGURED' };
+
+  try {
+    const match = await findImageKitFile(filePath);
+    if (!match) return { deleted: false, reason: 'NOT_FOUND' };
+    await imagekit.deleteFile(match.fileId);
+    // Drop the dedup hash so a re-upload of the same image does a clean fresh
+    // upload instead of reusing a dead URL.
+    if (postgresPool) {
+      try {
+        await postgresPool.query('DELETE FROM image_hashes WHERE url = $1', [url]);
+      } catch (hashErr) {
+        logWarn(`Hash cleanup failed (non-fatal): ${hashErr.message}`);
+      }
+    }
+    logInfo(`Deleted image from ImageKit: ${filePath} (${match.fileId})`);
+    return { deleted: true, fileId: match.fileId };
+  } catch (err) {
+    logWarn(`ImageKit delete failed (non-fatal): ${err.message}`);
+    return { deleted: false, reason: err.message };
+  }
+}
+
+/**
+ * Check whether an app-uploaded file still exists on ImageKit.
+ * Returns true when we cannot get a definitive answer (avoid blocking uploads
+ * on transient API errors); returns false only when the file is confirmed gone.
+ */
+async function isImageKitFileAlive(filePath) {
+  const ikPrivateKey = process.env.IMAGEKIT_PRIVATE_KEY || '';
+  const isIkConfigured =
+    ikPrivateKey && !['your_private_key', 'dummy_private_key'].includes(ikPrivateKey);
+  if (!isIkConfigured) return true;
+  try {
+    const files = await imagekit.listFiles({ path: '/rotaract', limit: 1000 });
+    return (
+      Array.isArray(files) &&
+      files.some((f) => f.filePath === filePath || (f.url || '').split('?')[0].endsWith(filePath))
+    );
+  } catch (err) {
+    logWarn(`ImageKit liveness check failed (non-fatal, reusing hash): ${err.message}`);
+    return true;
+  }
+}
+
+/**
+ * Count how many times a URL appears anywhere in the current website data.
+ * Used to protect shared images: a file is only removed from ImageKit once it
+ * is no longer referenced by any page/section.
+ */
+function countImageReferences(obj, url) {
+  let count = 0;
+  const walk = (value) => {
+    if (typeof value === 'string') {
+      if (value === url) count++;
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) walk(item);
+      return;
+    }
+    if (value && typeof value === 'object') {
+      for (const key of Object.keys(value)) walk(value[key]);
+    }
+  };
+  walk(obj);
+  return count;
+}
 
 let mongoClient;
 let mongoCollection = null;
@@ -116,7 +244,7 @@ app.use(cors({
   },
   credentials: true,
 }));
-app.use(express.json({ limit: '20kb' }));
+app.use(express.json({ limit: '50mb' }));
 
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -184,6 +312,10 @@ function normalizeWebsiteData(data) {
     aboutNe: data.aboutNe ?? '',
     aboutImage: data.aboutImage ?? '',
     contactImage: data.contactImage ?? '',
+    contactQuoteEn: data.contactQuoteEn ?? '',
+    contactQuoteNe: data.contactQuoteNe ?? '',
+    aboutQuoteEn: data.aboutQuoteEn ?? '',
+    aboutQuoteNe: data.aboutQuoteNe ?? '',
     eventsList: Array.isArray(data.eventsList) ? data.eventsList : [],
     albums: Array.isArray(data.albums) ? data.albums : [],
     highlights: Array.isArray(data.highlights) ? data.highlights : [],
@@ -335,6 +467,10 @@ function validateWebsitePayload(data) {
     ['heroNe', 200],
     ['aboutEn', 4000],
     ['aboutNe', 4000],
+    ['contactQuoteEn', 300],
+    ['contactQuoteNe', 300],
+    ['aboutQuoteEn', 300],
+    ['aboutQuoteNe', 300],
   ];
 
   for (const [key, maxLen] of textChecks) {
@@ -383,6 +519,7 @@ function validateWebsitePayload(data) {
     for (const [i, m] of data.team.entries()) {
       if (!m || typeof m !== 'object') return `team[${i}] is invalid`;
       if (m.name != null && (typeof m.name !== 'string' || m.name.length > 200)) return `team[${i}].name is invalid`;
+      if (m.nameNe != null && (typeof m.nameNe !== 'string' || m.nameNe.length > 200)) return `team[${i}].nameNe is invalid`;
       if (m.roleEn != null && (typeof m.roleEn !== 'string' || m.roleEn.length > 200)) return `team[${i}].roleEn is invalid`;
       if (m.roleNe != null && (typeof m.roleNe !== 'string' || m.roleNe.length > 200)) return `team[${i}].roleNe is invalid`;
       if (m.imgUrl != null && (typeof m.imgUrl !== 'string' || !SAFE_URL_PATTERN.test(m.imgUrl))) return `team[${i}].imgUrl is invalid`;
@@ -410,6 +547,7 @@ function validateWebsitePayload(data) {
       if (a.titleEn != null && (typeof a.titleEn !== 'string' || a.titleEn.length > 300)) return `albums[${i}].titleEn is invalid`;
       if (a.titleNe != null && (typeof a.titleNe !== 'string' || a.titleNe.length > 300)) return `albums[${i}].titleNe is invalid`;
       if (a.description != null && (typeof a.description !== 'string' || a.description.length > 1000)) return `albums[${i}].description is invalid`;
+      if (a.descriptionNe != null && (typeof a.descriptionNe !== 'string' || a.descriptionNe.length > 1000)) return `albums[${i}].descriptionNe is invalid`;
       if (a.coverImage != null && (typeof a.coverImage !== 'string' || !SAFE_URL_PATTERN.test(a.coverImage))) return `albums[${i}].coverImage is invalid`;
       if (a.eventId != null && (typeof a.eventId !== 'string' || a.eventId.length > 100)) return `albums[${i}].eventId is invalid`;
     }
@@ -434,6 +572,7 @@ function validateWebsitePayload(data) {
       if (init.titleEn != null && (typeof init.titleEn !== 'string' || init.titleEn.length > 300)) return `initiatives[${i}].titleEn is invalid`;
       if (init.titleNe != null && (typeof init.titleNe !== 'string' || init.titleNe.length > 300)) return `initiatives[${i}].titleNe is invalid`;
       if (init.desc != null && (typeof init.desc !== 'string' || init.desc.length > 1000)) return `initiatives[${i}].desc is invalid`;
+      if (init.descNe != null && (typeof init.descNe !== 'string' || init.descNe.length > 1000)) return `initiatives[${i}].descNe is invalid`;
     }
   }
 
@@ -1093,12 +1232,32 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// Public content — no-store so browsers & CDNs never cache stale content
-app.get('/api/content', async (_req, res) => {
-  res.setHeader('Cache-Control', 'no-store');
+// Helpers to serve cacheable public JSON.
+// Browsers revalidate every time via ETag (cheap 304) so the admin always sees
+// fresh content after a save; shared/CDN caches (e.g. Cloudflare free edge)
+// hold the payload for 60 s via s-maxage, so public visitors are served from
+// the nearest edge (fast) yet see admin updates within ~1 minute.
+function etagOf(value) {
+  return `"${crypto.createHash('sha256').update(value).digest('hex').slice(0, 32)}"`;
+}
+
+function sendPublicJson(req, res, data) {
+  const body = JSON.stringify(data);
+  const etag = etagOf(body);
+  res.setHeader('ETag', etag);
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=60, max-age=0, must-revalidate');
+  if (req.headers['if-none-match'] === etag) {
+    res.status(304).end();
+    return;
+  }
+  res.json(data);
+}
+
+// Public content — cached at the edge (Cloudflare/Vercel), revalidated by ETag.
+app.get('/api/content', async (req, res) => {
   try {
     const store = await readStore();
-    res.json({ websiteData: store.websiteData });
+    sendPublicJson(req, res, { websiteData: store.websiteData });
   } catch {
     res.status(500).json({ message: 'Failed to load content' });
   }
@@ -1360,21 +1519,20 @@ app.post('/api/admin/users/send-credentials', requireAuth, async (req, res) => {
       from: `"Rotaract Club of Swoyambhu" <${smtpUser}>`,
       to: email,
       subject: 'Welcome to Rotaract Club of Swoyambhu Admin C-Panel',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; background: #ffffff;">
-          <h2 style="color: #0F172A; margin-top: 0;">Admin Account Created</h2>
-          <p style="color: #475569; font-size: 15px;">Hello,</p>
-          <p style="color: #475569; font-size: 15px;">An administrative account has been created for you at <strong>Rotaract Club of Swoyambhu Control Panel</strong>.</p>
-          
-          <div style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #cbd5e1; margin: 20px 0;">
-            <p style="margin: 4px 0; color: #1e293b;"><strong>Username:</strong> <code style="font-size: 16px; background: #e2e8f0; padding: 2px 6px; borderRadius: 4px;">${username}</code></p>
-            <p style="margin: 4px 0; color: #1e293b;"><strong>Temporary Password:</strong> <code style="font-size: 16px; background: #e2e8f0; padding: 2px 6px; borderRadius: 4px;">${tempPassword}</code></p>
-          </div>
-
-          <p style="color: #ef4444; font-size: 14px; font-weight: 600;">⚠️ For security reasons, you will be prompted to change this temporary password upon your first sign-in.</p>
-          <p style="color: #64748b; font-size: 13px; margin-bottom: 0;">Regards,<br>Rotaract Club of Swoyambhu Executive Team</p>
-        </div>
-      `,
+      html: emailShell({
+        title: 'Welcome to the Control Panel',
+        kicker: 'Admin Account Created',
+        children: `
+          <p style="margin:0 0 14px; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.7; color:#3a231a;">Hello <strong>${escapeHtml(username)}</strong>,</p>
+          <p style="margin:0 0 20px; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.7; color:#4b3a30;">An administrative account has been created for you at <strong>Rotaract Club of Swoyambhu Control Panel</strong>. Use the credentials below to sign in:</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fdf9f1; border:1px solid #efe3cb; border-radius:14px; padding:6px 18px;">
+            ${emailDetailRow('👤', 'Username', username)}
+            ${emailDetailRow('🔑', 'Temporary Password', tempPassword)}
+          </table>
+          <p style="margin:20px 0 0; font-family:Arial, Helvetica, sans-serif; font-size:13px; line-height:1.6; color:#B91C1C; font-weight:600;">⚠️ For security reasons, you will be required to change this temporary password upon your first sign-in.</p>
+        `,
+        footerNote: 'Regards,<br/>Rotaract Club of Swoyambhu Executive Team',
+      }),
     };
 
     await transporter.sendMail(mailOptions);
@@ -1898,12 +2056,11 @@ app.delete('/api/admin/error-logs', requireAuth, async (req, res) => {
 
 app.get('/api/events', async (req, res) => {
   try {
-    res.setHeader('Cache-Control', 'no-store');
     const store = await readStore();
     const allEvents = Array.isArray(store.websiteData?.eventsList) ? store.websiteData.eventsList : [];
     // Public only gets published events
     const published = sanitizeEventsList(allEvents.filter(e => e.status !== 'Draft'));
-    res.json(published);
+    sendPublicJson(req, res, published);
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch events' });
   }
@@ -1967,6 +2124,7 @@ app.post('/api/admin/events', requireAuth, async (req, res) => {
       pictures: pictures.slice(0, 10),
       eventDate,
       eventTime: eventTime.trim(),
+      venue: venue.trim(),
       attendees: attendees.trim(),
       registrationLink: sanitizeWebUrl(registrationLink),
       registrationClosed: Boolean(registrationClosed),
@@ -1991,6 +2149,76 @@ app.post('/api/admin/events', requireAuth, async (req, res) => {
     res.status(500).json({ message: 'Failed to create event' });
   }
 });
+
+// ── Email template helpers (SMTP) ───────────────────────────────────────────
+
+// Escape user-provided text to avoid breaking the HTML / HTML injection.
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Master email shell (responsive, tablet-style) with the club's heritage palette.
+function emailShell({ title, kicker = '', children, footerNote }) {
+  return `
+    <!DOCTYPE html>
+    <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+    <body style="margin:0; padding:0; background:#f0e9dc; -webkit-font-smoothing:antialiased;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0e9dc;">
+        <tr><td align="center" style="padding:32px 14px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px; background:#ffffff; border-radius:18px; overflow:hidden; border:1px solid #e5d9c2; box-shadow:0 12px 30px rgba(79,18,34,0.10);">
+            <tr>
+              <td style="background:linear-gradient(135deg,#7A1F34 0%,#4F1222 100%); padding:28px 30px 24px; border-bottom:4px solid #DFA92E; text-align:center;">
+                <div style="font-family:Arial, Helvetica, sans-serif; font-size:11px; letter-spacing:3px; text-transform:uppercase; color:#EE7F13; font-weight:800;">Rotaract Club of Swoyambhu</div>
+                <div style="font-family:Georgia, 'Times New Roman', serif; font-size:26px; line-height:1.25; color:#FFF8EC; margin:12px 0 10px; font-weight:800;">${title}</div>
+                ${kicker ? `<span style="display:inline-block; font-family:Arial, Helvetica, sans-serif; background:#EE7F13; color:#ffffff; font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase; padding:5px 14px; border-radius:999px;">${kicker}</span>` : ''}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:26px 30px; color:#3a231a; font-family:Arial, Helvetica, sans-serif;">${children}</td>
+            </tr>
+            <tr>
+              <td style="background:#faf4e8; padding:18px 30px; border-top:1px solid #efe3cd;">
+                <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:12px; line-height:1.6; color:#8a7362; text-align:center;">${footerNote}</p>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+    </body>
+    </html>`;
+}
+
+// A labelled detail row (used for date / time / venue / attendees / tags / credentials).
+function emailDetailRow(emoji, label, value) {
+  return `
+    <tr>
+      <td style="padding:10px 0; border-bottom:1px solid #f3e9d6;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td width="32" valign="top" style="font-size:16px; line-height:1.2;">${emoji}</td>
+            <td valign="top">
+              <div style="font-family:Arial, Helvetica, sans-serif; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:#a3805f; font-weight:700;">${escapeHtml(label)}</div>
+              <div style="font-family:Arial, Helvetica, sans-serif; font-size:15px; font-weight:600; color:#3A231A; margin-top:2px;">${escapeHtml(value)}</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>`;
+}
+
+// A primary action button used across email templates.
+function emailPrimaryButton(href, label) {
+  return `
+    <div style="text-align:center; margin-top:26px;">
+      <a href="${href}" target="_blank" rel="noopener noreferrer" style="display:inline-block; font-family:Arial, Helvetica, sans-serif; background:linear-gradient(135deg,#EE7F13 0%,#DFA92E 100%); color:#3A2A12; padding:13px 34px; border-radius:999px; font-weight:800; font-size:14px; text-decoration:none; box-shadow:0 8px 22px rgba(238,127,19,0.35);">${label}</a>
+    </div>`;
+}
 
 // Helper function to broadcast new event to email subscribers via Google SMTP
 async function sendUpcomingEventBroadcast(event) {
@@ -2031,43 +2259,48 @@ async function sendUpcomingEventBroadcast(event) {
   for (const recipientEmail of subscribers) {
     const unsubUrl = `${process.env.FRONTEND_ORIGIN ? process.env.FRONTEND_ORIGIN.split(',')[0] : 'http://localhost:5173'}/events?unsubscribe=true&email=${encodeURIComponent(recipientEmail)}`;
     
+    const detailRows = [
+      event.eventDate ? { emoji: '📅', label: 'Date', value: event.eventDate } : null,
+      event.eventTime ? { emoji: '🕒', label: 'Time', value: event.eventTime } : null,
+      event.venue ? { emoji: '📍', label: 'Venue', value: event.venue } : null,
+      event.attendees ? { emoji: '👥', label: 'Attendees / Guests', value: event.attendees } : null,
+      event.tags && event.tags.length ? { emoji: '🏷️', label: 'Tags', value: event.tags.join(', ') } : null,
+    ].filter(Boolean);
+    const detailsHtml = detailRows.map(d => emailDetailRow(d.emoji, d.label, d.value)).join('');
+
+    const collaboratorsHtml = (Array.isArray(event.collaborators) && event.collaborators.length)
+      ? `<p style="margin:18px 0 0; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#5a4636; line-height:1.6;">🤝 <strong>In collaboration with:</strong> ${event.collaborators.map(c => escapeHtml(c.name)).join(' <span style="color:#DFA92E;">•</span> ')}</p>`
+      : '';
+
+    const regUrl = sanitizeWebUrl(event.registrationLink);
+    const regButton = (regUrl && !event.registrationClosed)
+      ? emailPrimaryButton(regUrl, 'Register for this event →')
+      : '';
+
     const mailOptions = {
       from: `"Rotaract Club of Swoyambhu" <${smtpUser}>`,
       to: recipientEmail,
-      subject: `🎉 Upcoming Event Announcement: ${event.title}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; padding: 28px; background: #ffffff;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <span style="background: #FF8A00; color: #ffffff; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 12px; text-transform: uppercase; letter-spacing: 1px;">Upcoming Event</span>
-            <h2 style="color: #0F172A; margin: 12px 0 6px;">${event.title}</h2>
-            <p style="color: #64748b; font-size: 14px; margin: 0;">📅 ${event.eventDate} ${event.eventTime ? `@ ${event.eventTime}` : ''}</p>
-          </div>
-
-          ${event.pictures && event.pictures.length > 0 ? `
-            <div style="width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 20px;">
-              <img src="${event.pictures[0]}" alt="${event.title}" style="width: 100%; height: auto; display: block;" />
-            </div>
+      subject: `🎉 Upcoming Event: ${event.title}`,
+      html: emailShell({
+        title: escapeHtml(event.title),
+        kicker: 'Upcoming Event',
+        children: `
+          ${event.pictures && event.pictures.length ? `
+            <img src="${event.pictures[0]}" alt="${escapeHtml(event.title)}" width="100%" style="width:100%; height:auto; display:block; border-radius:12px; margin:0 0 22px; border:1px solid #efe0c9;" />
           ` : ''}
+          <p style="margin:0 0 6px; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.6; color:#4b3a30;">Hello,</p>
+          <p style="margin:0 0 20px; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.6; color:#4b3a30;">We're excited to invite you to an upcoming event by <strong>Rotaract Club of Swoyambhu</strong>. Here are all the details:</p>
 
-          <p style="color: #334155; font-size: 15px; line-height: 1.6; white-space: pre-line;">${event.description}</p>
+          ${detailsHtml ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px; background:#fdf9f1; border:1px solid #efe3cb; border-radius:14px; padding:6px 18px;">${detailsHtml}</table>` : ''}
 
-          ${event.attendees ? `<p style="color: #475569; font-size: 14px; background: #f8fafc; padding: 10px 14px; border-radius: 8px;">👥 Attendees / Guests: <strong>${event.attendees}</strong></p>` : ''}
+          <h3 style="margin:0 0 10px; font-family:Arial, Helvetica, sans-serif; font-size:15px; text-transform:uppercase; letter-spacing:1px; color:#7A1F34; font-weight:800;">About the event</h3>
+          <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.7; color:#3a231a; white-space:pre-line;">${escapeHtml(event.description)}</p>
 
-          ${sanitizeWebUrl(event.registrationLink) && !event.registrationClosed ? `
-            <div style="text-align: center; margin-top: 28px;">
-              <a href="${sanitizeWebUrl(event.registrationLink)}" target="_blank" rel="noopener noreferrer" style="background: #FF8A00; color: #ffffff; padding: 12px 28px; border-radius: 25px; font-weight: 700; text-decoration: none; display: inline-block;">
-                Register For Event →
-              </a>
-            </div>
-          ` : ''}
-
-          <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 28px 0 16px;" />
-          <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 0;">
-            You received this email because you subscribed to event notifications at Rotaract Club of Swoyambhu.<br />
-            Want to stop receiving notifications? <a href="${unsubUrl}" style="color: #ef4444; text-decoration: underline;">Unsubscribe with 1-click</a>
-          </p>
-        </div>
-      `,
+          ${collaboratorsHtml}
+          ${regButton}
+        `,
+        footerNote: `You are receiving this because you subscribed to event notifications at <strong>Rotaract Club of Swoyambhu</strong>.<br/>Want to stop receiving these? <a href="${unsubUrl}" style="color:#EF4444; text-decoration:underline;">Unsubscribe with 1-click</a>`,
+      }),
     };
 
     try {
@@ -2126,20 +2359,21 @@ app.post('/api/subscribe', async (req, res) => {
         from: `"Rotaract Club of Swoyambhu" <${smtpUser}>`,
         to: cleanEmail,
         subject: 'Subscribed to Rotaract Club of Swoyambhu Events',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 550px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 14px;">
-            <h2 style="color: #0F172A; margin-top: 0;">Subscription Confirmed! 🎉</h2>
-            <p style="color: #475569; font-size: 15px; line-height: 1.6;">
-              Thank you for subscribing to <strong>Rotaract Club of Swoyambhu</strong> event notifications. You will now automatically receive updates and invitations for all our upcoming community, youth development, and cultural events directly in your inbox.
-            </p>
-            <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #f1f5f9; text-align: center;">
-              <a href="${unsubUrl}" style="color: #ef4444; font-size: 13px; text-decoration: underline;">
-                Click here to Unsubscribe / Stop receiving notifications
-              </a>
+        html: emailShell({
+          title: 'Subscription Confirmed 🎉',
+          kicker: 'You\u2019re on the list',
+          children: `
+            <p style="margin:0 0 14px; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.7; color:#3a231a;">Thank you for subscribing to <strong>Rotaract Club of Swoyambhu</strong> event notifications.</p>
+            <p style="margin:0 0 20px; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.7; color:#4b3a30;">You will now automatically receive every upcoming community, youth development, and cultural event — including dates, venues, and registration links — directly in your inbox. Stay tuned!</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fdf9f1; border:1px solid #efe3cb; border-radius:14px; padding:6px 18px;">
+              ${emailDetailRow('✉️', 'Subscribed email', cleanEmail)}
+            </table>
+            <div style="text-align:center; margin-top:22px;">
+              <a href="${unsubUrl}" style="font-family:Arial, Helvetica, sans-serif; color:#EF4444; font-size:13px; text-decoration:underline;">Click here to Unsubscribe / Stop receiving notifications</a>
             </div>
-            <p style="color: #94a3b8; font-size: 13px; text-align: center; margin-top: 14px;">Warm regards,<br>Rotaract Club of Swoyambhu Team</p>
-          </div>
-        `
+          `,
+          footerNote: 'Warm regards,<br/>Rotaract Club of Swoyambhu Team',
+        }),
       }).catch(e => logWarn(`Subscribe confirmation email error: ${e.message}`));
     }
 
@@ -2181,7 +2415,7 @@ app.put('/api/admin/events/:id', requireAuth, async (req, res) => {
   }
 
   const { id } = req.params;
-  const { title, description = '', tags = [], pictures = [], eventDate, eventTime = '', attendees = '', registrationLink = '', registrationClosed = false, collaborators = [], status = 'Published' } = req.body;
+  const { title, description = '', tags = [], pictures = [], eventDate, eventTime = '', venue = '', attendees = '', registrationLink = '', registrationClosed = false, collaborators = [], status = 'Published' } = req.body;
 
   if (!title || typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ message: 'Event title is required' });
@@ -2226,6 +2460,7 @@ app.put('/api/admin/events/:id', requireAuth, async (req, res) => {
       pictures: pictures.slice(0, 10),
       eventDate,
       eventTime: eventTime.trim(),
+      venue: venue.trim(),
       attendees: attendees.trim(),
       registrationLink: sanitizeWebUrl(registrationLink),
       registrationClosed: Boolean(registrationClosed),
@@ -2461,8 +2696,14 @@ app.post('/api/admin/upload', requireAuth, upload.single('image'), async (req, r
           [fileHash]
         );
         if (existing.rows.length > 0) {
-          logInfo(`Dedup hit — reusing existing image: ${existing.rows[0].url}`);
-          return res.json({ url: existing.rows[0].url, deduplicated: true });
+          const storedUrl = existing.rows[0].url;
+          const filePath = extractImageKitPath(storedUrl);
+          const alive = filePath ? await isImageKitFileAlive(filePath) : false;
+          if (alive) {
+            logInfo(`Dedup hit — reusing existing image: ${storedUrl}`);
+            return res.json({ url: storedUrl, deduplicated: true });
+          }
+          logWarn(`Dedup URL no longer exists on ImageKit (${storedUrl}) — will re-upload`);
         }
       } catch (hashLookupErr) {
         logWarn(`Hash lookup failed (non-fatal): ${hashLookupErr.message}`);
@@ -2499,7 +2740,8 @@ app.post('/api/admin/upload', requireAuth, upload.single('image'), async (req, r
         await postgresPool.query(
           `INSERT INTO image_hashes (sha256, url, original_name)
            VALUES ($1, $2, $3)
-           ON CONFLICT (sha256) DO NOTHING`,
+           ON CONFLICT (sha256) DO UPDATE SET url = EXCLUDED.url,
+             original_name = EXCLUDED.original_name, uploaded_at = NOW()`,
           [fileHash, uploadResponse.url, req.file.originalname || null]
         );
       } catch (hashStoreErr) {
@@ -2533,6 +2775,34 @@ app.post('/api/admin/upload', requireAuth, upload.single('image'), async (req, r
       reportId,
     });
   }
+});
+
+// Delete an app-uploaded image from ImageKit (best-effort, reference-counted).
+// The client calls this when an image is removed or replaced, so orphaned
+// files don't accumulate in the /rotaract library. The file is only actually
+// deleted once it is no longer referenced ANYWHERE in the current content —
+// an image reused across multiple pages/sections is kept until the last
+// reference is gone.
+app.post('/api/admin/delete-image', requireAuth, async (req, res) => {
+  const { url } = req.body || {};
+  if (!url || typeof url !== 'string') {
+    return res.status(400).json({ message: 'No image URL provided' });
+  }
+
+  try {
+    const store = await readStore(true);
+    const references = countImageReferences(store?.websiteData || {}, url);
+    if (references > 0) {
+      logInfo(`Image still referenced ${references}× — keeping: ${url}`);
+      return res.json({ deleted: false, reason: 'STILL_REFERENCED', references });
+    }
+  } catch (err) {
+    logWarn(`Image reference check failed (non-fatal, keeping image): ${err.message}`);
+    return res.json({ deleted: false, reason: 'REFERENCE_CHECK_FAILED' });
+  }
+
+  const result = await deleteImageFromImageKit(url);
+  res.json(result);
 });
 
 if (process.env.NODE_ENV !== 'production') {

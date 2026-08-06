@@ -1,12 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLang } from '../context/LanguageContext';
+import { checkAdminSession } from '../api/client';
 
 export default function MobileBottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const { lang, toggleLang } = useLang();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [atBottom, setAtBottom] = useState(false);
+
+  // Hide the Admin tab when there is no active admin session.
+  useEffect(() => {
+    let cancelled = false;
+    checkAdminSession()
+      .then(() => { if (!cancelled) setIsAdmin(true); })
+      .catch(() => { if (!cancelled) setIsAdmin(false); });
+    return () => { cancelled = true; };
+  }, [location.pathname]);
+
+  // Hide the bar when the page is fully scrolled to the bottom.
+  useEffect(() => {
+    const handleScroll = () => {
+      const doc = document.documentElement;
+      const distFromBottom = doc.scrollHeight - window.innerHeight - window.scrollY;
+      setAtBottom(distFromBottom <= 80);
+    };
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, []);
 
   const isActive = (path) => location.pathname === path;
 
@@ -74,7 +102,7 @@ export default function MobileBottomNav() {
       </div>
 
       {/* Main Fixed Bottom Nav Bar */}
-      <nav className="mobile-bottom-nav-bar" aria-label="Mobile Navigation">
+      <nav className={`mobile-bottom-nav-bar ${atBottom ? 'hidden' : ''}`} aria-label="Mobile Navigation">
         <button 
           className={`nav-tab ${isActive('/') ? 'active' : ''}`}
           onClick={() => handleNav('/')}
@@ -111,15 +139,17 @@ export default function MobileBottomNav() {
           <span className="tab-label">{lang === 'en' ? 'Gallery' : 'ग्यालरी'}</span>
         </button>
 
-        <button 
-          className={`nav-tab ${location.pathname.startsWith('/admin') ? 'active' : ''}`}
-          onClick={() => handleNav('/admin')}
-        >
-          <svg className="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14.5h-2v-2h2zm0-4h-2V7h2z"/>
-          </svg>
-          <span className="tab-label">{lang === 'en' ? 'Admin' : 'एडमिन'}</span>
-        </button>
+        {isAdmin && (
+          <button 
+            className={`nav-tab ${location.pathname.startsWith('/admin') ? 'active' : ''}`}
+            onClick={() => handleNav('/admin')}
+          >
+            <svg className="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14.5h-2v-2h2zm0-4h-2V7h2z"/>
+            </svg>
+            <span className="tab-label">{lang === 'en' ? 'Admin' : 'एडमिन'}</span>
+          </button>
+        )}
 
         <button 
           className={`nav-tab ${drawerOpen ? 'active' : ''}`}

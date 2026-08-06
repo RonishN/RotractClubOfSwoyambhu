@@ -143,7 +143,14 @@ export default function HeroSection({ content, isLoading }) {
                   </EditableField>
                 </span>
                 <span className="home-hero-stat-label">
-                  <EditableField field="heroStats" value={lang === 'en' ? s.labelEn : s.labelNe} onChange={(v) => updateStat(i, lang === 'en' ? 'labelEn' : 'labelNe', v)} style={{ display: 'inline-block' }}>
+                  <EditableField
+                    field="heroStats"
+                    value={s.labelEn}
+                    onChange={(v) => updateStat(i, 'labelEn', v)}
+                    neValue={s.labelNe}
+                    onChangeNe={(v) => updateStat(i, 'labelNe', v)}
+                    style={{ display: 'inline-block' }}
+                  >
                     {lang === 'en' ? s.labelEn : s.labelNe}
                   </EditableField>
                 </span>

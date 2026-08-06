@@ -267,6 +267,41 @@ export async function uploadImage(file) {
   return data.url;
 }
 
+/**
+ * Best-effort deletion of an app-uploaded image from ImageKit.
+ * Fire-and-forget: failures are silently ignored so the UI never blocks.
+ */
+export function deleteImage(url) {
+  if (!url || typeof url !== 'string' || !url.startsWith('http')) {
+    return Promise.resolve({ deleted: false, reason: 'NOT_MANAGED' });
+  }
+  return request('/admin/delete-image', {
+    method: 'POST',
+    body: JSON.stringify({ url }),
+  }).catch(() => ({ deleted: false, reason: 'NETWORK_ERROR' }));
+}
+
+// ── Deferred image deletion ────────────────────────────────────────────────
+// Deleting an image right when it's removed from a draft is dangerous: the old
+// URL may still be referenced elsewhere (or the content save may not have
+// committed yet). We instead queue removals here and only flush them AFTER a
+// successful content save. The server also reference-counts before deleting,
+// so a shared image is kept until its last reference is gone.
+const pendingImageDeletions = new Set();
+
+export function queueImageDeletion(url) {
+  if (url && typeof url === 'string' && url.startsWith('http')) {
+    pendingImageDeletions.add(url);
+  }
+}
+
+export async function flushPendingImageDeletions() {
+  if (pendingImageDeletions.size === 0) return;
+  const urls = Array.from(pendingImageDeletions);
+  pendingImageDeletions.clear();
+  await Promise.allSettled(urls.map((url) => deleteImage(url)));
+}
+
 export async function restoreToDefaults() {
   return request('/admin/restore-defaults', {
     method: 'POST',

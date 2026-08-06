@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { getAdminEvents, createEvent, updateEvent, deleteEvent, uploadImage, notifyEventSubscribers, resetEventNotifiedStates, setPriorityEvent } from '../api/client';
+import { getAdminEvents, createEvent, updateEvent, deleteEvent, uploadImage, deleteImage, notifyEventSubscribers, resetEventNotifiedStates, setPriorityEvent } from '../api/client';
 import EventCarousel from '../components/EventCarousel';
 import ImageCropModal from '../components/ImageCropModal';
 import EventHighlightsManager from '../components/EventHighlightsManager';
@@ -41,6 +41,10 @@ export default function AdminEvents() {
   const [uploading, setUploading] = useState(false);
   const [uploadingCollabLogo, setUploadingCollabLogo] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Pictures of the event being edited (before any edits), so we can clean up
+  // ImageKit files for photos the admin removes.
+  const originalEventPicturesRef = useRef([]);
 
   // Search & Filter in Admin list
   const [searchTerm, setSearchTerm] = useState('');
@@ -83,6 +87,7 @@ export default function AdminEvents() {
     setTagsInput('');
     setPictures([]);
     setCollaborators([]);
+    originalEventPicturesRef.current = [];
     setPendingFiles([]);
     setCurrentCropIndex(0);
     setCroppingImageSrc(null);
@@ -108,6 +113,7 @@ export default function AdminEvents() {
     setStatus(ev.status || 'Published');
     setTagsInput(Array.isArray(ev.tags) ? ev.tags.join(', ') : '');
     setPictures(Array.isArray(ev.pictures) ? ev.pictures : []);
+    originalEventPicturesRef.current = Array.isArray(ev.pictures) ? [...ev.pictures] : [];
     setCollaborators(Array.isArray(ev.collaborators) ? ev.collaborators : []);
     setError('');
     setIsModalOpen(true);
@@ -286,6 +292,9 @@ export default function AdminEvents() {
     try {
       if (isEditing && editingId) {
         await updateEvent(editingId, payload);
+        // Clean up ImageKit files for photos that were removed during editing
+        const removedPics = originalEventPicturesRef.current.filter(u => !pictures.includes(u));
+        removedPics.forEach((u) => { if (u.startsWith('http')) deleteImage(u); });
         setSuccessMsg('Event updated successfully!');
       } else {
         await createEvent(payload);
@@ -304,7 +313,10 @@ export default function AdminEvents() {
   const handleDelete = async (id, eventTitle) => {
     if (!window.confirm(`Are you sure you want to delete "${eventTitle}"?`)) return;
     try {
+      const ev = events.find((e) => e.id === id);
       await deleteEvent(id);
+      // Clean up all uploaded photos for the deleted event
+      (ev?.pictures || []).forEach((u) => { if (u.startsWith('http')) deleteImage(u); });
       fetchEvents();
     } catch (err) {
       alert(err.message || 'Failed to delete event.');

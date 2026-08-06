@@ -2,7 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLang } from '../context/LanguageContext';
 import { useEditMode } from '../context/EditModeContext';
-import { uploadImage } from '../api/client';
+import { uploadImage, queueImageDeletion } from '../api/client';
+import { translateToNepali } from '../api/translate';
+import { compressImage } from '../utils/compressImage';
 import ImageCropModal from './ImageCropModal';
 import GalleryLightbox from './GalleryLightbox';
 
@@ -316,6 +318,8 @@ export default function GallerySection({ content = {}, albumId = null }) {
   const navigate = useNavigate();
 
   const [editingCaptionIndex, setEditingCaptionIndex] = useState(null);
+  const [translatingCaption, setTranslatingCaption] = useState(false);
+  const [translatingAlbumTitle, setTranslatingAlbumTitle] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isBatchUploading, setIsBatchUploading] = useState(false);
@@ -376,23 +380,27 @@ export default function GallerySection({ content = {}, albumId = null }) {
 
   // Intercept the saveAll call from EditModeContext
   const editMode = useEditMode();
-  
+
+  // Always run the pre-save upload against the latest values, even though the
+  // hook is registered only once on mount.
+  const itemsRef = useRef(items);
+  const albumListRef = useRef(albumList);
+  const albumFormRef = useRef(albumForm);
+  useEffect(() => { itemsRef.current = items; }, [items]);
+  useEffect(() => { albumListRef.current = albumList; }, [albumList]);
+  useEffect(() => { albumFormRef.current = albumForm; }, [albumForm]);
+
   useEffect(() => {
-    // Monitor global saving state to run bulk upload pre-save sequence
-    const interceptSave = async () => {
+    // Registered as a pre-save hook: saveAll awaits this BEFORE serializing the
+    // draft, so base64 previews are replaced with remote URLs first (no 413).
+    return editMode.registerPreSaveHook(async () => {
       const keys = Object.keys(pendingUploadsRef.current);
-      if (keys.length > 0 && editMode.saving && !bulkUploading) {
-        try {
-          const { nextItems, nextAlbums } = await processPendingUploads(items, albumList);
-          editMode.updateDraftArray('gallery', nextItems);
-          editMode.updateDraftArray('albums', nextAlbums);
-        } catch (err) {
-          console.error('Error during bulk upload pre-save:', err);
-        }
-      }
-    };
-    interceptSave();
-  }, [editMode.saving]);
+      if (keys.length === 0) return;
+      const { nextItems, nextAlbums } = await processPendingUploads(itemsRef.current, albumListRef.current);
+      editMode.updateDraftArray('gallery', nextItems);
+      editMode.updateDraftArray('albums', nextAlbums);
+    });
+  }, []);
 
   const openGalleryIndex = () => navigate('/admin/edit/gallery');
   const openAlbum = (id) => navigate(`/admin/edit/gallery/album/${id}`);
@@ -419,10 +427,82 @@ export default function GallerySection({ content = {}, albumId = null }) {
     updateDraftArray('gallery', newList);
   };
 
+  const handleAutoTranslateCaption = async () => {
+    const enText = items[editingCaptionIndex]?.captionEn || '';
+    if (!enText.trim()) {
+      showToast('error', 'Type the English caption first, then auto-translate it.', false);
+      return;
+    }
+    setTranslatingCaption(true);
+    try {
+      const translated = await translateToNepali(enText);
+      if (translated) {
+        handleUpdate(editingCaptionIndex, 'captionNe', translated);
+        showToast('success', 'Translated to Nepali.');
+      } else {
+        showToast('error', 'Translation came back empty — type the Nepali caption manually.', false);
+      }
+    } catch (err) {
+      showToast('error', 'Auto-translate failed — type the Nepali caption manually.', false);
+    } finally {
+      setTranslatingCaption(false);
+    }
+  };
+
+  const handleAutoTranslateAlbumTitle = async () => {
+    const enText = albumForm.titleEn || '';
+    if (!enText.trim()) {
+      showToast('error', 'Type the English title first, then auto-translate it.', false);
+      return;
+    }
+    setTranslatingAlbumTitle(true);
+    try {
+      const translated = await translateToNepali(enText);
+      if (translated) {
+        setAlbumForm({ ...albumForm, titleNe: translated });
+        showToast('success', 'Translated to Nepali.');
+      } else {
+        showToast('error', 'Translation came back empty — type the Nepali title manually.', false);
+      }
+    } catch (err) {
+      showToast('error', 'Auto-translate failed — type the Nepali title manually.', false);
+    } finally {
+      setTranslatingAlbumTitle(false);
+    }
+  };
+
+  const [translatingAlbumDesc, setTranslatingAlbumDesc] = useState(false);
+
+  const handleAutoTranslateAlbumDesc = async () => {
+    const enText = albumForm.description || '';
+    if (!enText.trim()) {
+      showToast('error', 'Type the English description first, then auto-translate it.', false);
+      return;
+    }
+    setTranslatingAlbumDesc(true);
+    try {
+      const translated = await translateToNepali(enText);
+      if (translated) {
+        setAlbumForm({ ...albumForm, descriptionNe: translated });
+        showToast('success', 'Translated to Nepali.');
+      } else {
+        showToast('error', 'Translation came back empty — type the Nepali description manually.', false);
+      }
+    } catch (err) {
+      showToast('error', 'Auto-translate failed — type the Nepali description manually.', false);
+    } finally {
+      setTranslatingAlbumDesc(false);
+    }
+  };
+
   const handleDelete = (index) => {
+    const removed = items[index];
     const newList = [...items];
     newList.splice(index, 1);
     updateDraftArray('gallery', newList);
+    // Remove the uploaded image from ImageKit unless it's still used as a cover
+    const isCover = albumList.some(a => a.coverImage && isSameImage(a.coverImage, removed.imgUrl));
+    if (removed.imgUrl && !isCover) queueImageDeletion(removed.imgUrl);
     showToast('success', 'Photo removed from gallery');
   };
 
@@ -439,7 +519,7 @@ export default function GallerySection({ content = {}, albumId = null }) {
   // ── Album management ──
   const openCreateAlbum = () => {
     setEditingAlbum(null);
-    setAlbumForm({ titleEn: '', titleNe: '', description: '', eventId: '', coverImage: '' });
+    setAlbumForm({ titleEn: '', titleNe: '', description: '', descriptionNe: '', eventId: '', coverImage: '' });
     setAlbumModalOpen(true);
   };
 
@@ -449,6 +529,7 @@ export default function GallerySection({ content = {}, albumId = null }) {
       titleEn: album.titleEn || '',
       titleNe: album.titleNe || '',
       description: album.description || '',
+      descriptionNe: album.descriptionNe || '',
       eventId: album.eventId || '',
       coverImage: album.coverImage || '',
     });
@@ -478,7 +559,7 @@ export default function GallerySection({ content = {}, albumId = null }) {
 
   const processPendingUploads = async (currentItems, currentAlbums) => {
     const keys = Object.keys(pendingUploadsRef.current);
-    if (keys.length === 0 && !albumForm.coverImage?.startsWith('data:image')) {
+    if (keys.length === 0 && !albumFormRef.current.coverImage?.startsWith('data:image')) {
       return { nextItems: currentItems, nextAlbums: currentAlbums };
     }
 
@@ -486,11 +567,11 @@ export default function GallerySection({ content = {}, albumId = null }) {
     let nextItems = [...currentItems];
     let nextAlbums = [...currentAlbums];
 
-    const totalSteps = keys.length + (albumForm.coverImage?.startsWith('data:image') ? 1 : 0);
+    const totalSteps = keys.length + (albumFormRef.current.coverImage?.startsWith('data:image') ? 1 : 0);
     let currentStep = 0;
 
     // 1. Upload pending cover image if it is base64/local
-    if (albumForm.coverImage && albumForm.coverImage.startsWith('data:image') && coverFileInputRef.current) {
+    if (albumFormRef.current.coverImage && albumFormRef.current.coverImage.startsWith('data:image') && coverFileInputRef.current) {
       currentStep++;
       setBulkUploadProgress({
         current: currentStep,
@@ -502,7 +583,7 @@ export default function GallerySection({ content = {}, albumId = null }) {
         const coverFile = pendingUploadsRef.current['cover-image'];
         if (coverFile) {
           const remoteUrl = await uploadImage(coverFile);
-          albumForm.coverImage = remoteUrl;
+          albumFormRef.current.coverImage = remoteUrl;
           delete pendingUploadsRef.current['cover-image'];
         }
       } catch (err) {
@@ -510,13 +591,15 @@ export default function GallerySection({ content = {}, albumId = null }) {
       }
     }
 
-    // 2. Upload other pending gallery images
-    for (let i = 0; i < keys.length; i++) {
-      const idKey = keys[i];
-      if (idKey === 'cover-image') continue;
-      currentStep++;
-      
+    // 2. Upload other pending gallery images — in parallel (max 3 at once).
+    const uploadIds = keys.filter((k) => k !== 'cover-image');
+    const concurrency = Math.max(1, Math.min(3, uploadIds.length));
+    const failedUploads = [];
+    let cursor = 0;
+
+    const uploadOne = async (idKey) => {
       const fileToUpload = pendingUploadsRef.current[idKey];
+      currentStep++;
       setBulkUploadProgress({
         current: currentStep,
         total: totalSteps,
@@ -529,20 +612,43 @@ export default function GallerySection({ content = {}, albumId = null }) {
           // Find the item with this temporary id and replace its imgUrl/id
           const idx = nextItems.findIndex(item => item.id === idKey);
           if (idx !== -1) {
+            const oldImgUrl = nextItems[idx].imgUrl;
             nextItems[idx] = {
               ...nextItems[idx],
-              id: idKey.startsWith('temp-') ? `img-${Date.now()}-${i}` : idKey,
+              id: idKey.startsWith('temp-') ? `img-${Date.now()}-${idx}` : idKey,
               imgUrl: remoteUrl
             };
+            // If this was a replacement of an already-uploaded image, clean up
+            // the old file from ImageKit (new uploads have base64 preview URLs).
+            if (oldImgUrl && oldImgUrl.startsWith('http') && !isSameImage(oldImgUrl, remoteUrl)) {
+              queueImageDeletion(oldImgUrl);
+            }
           }
           delete pendingUploadsRef.current[idKey];
         }
       } catch (err) {
+        failedUploads.push(fileToUpload?.name || 'photo');
         console.error(`Failed to upload item ${idKey}:`, err);
       }
-    }
+    };
+
+    const worker = async () => {
+      while (cursor < uploadIds.length) {
+        await uploadOne(uploadIds[cursor++]);
+      }
+    };
+    await Promise.all(Array.from({ length: concurrency }, worker));
 
     setBulkUploading(false);
+
+    if (failedUploads.length > 0) {
+      showToast(
+        'error',
+        `${failedUploads.length} photo(s) failed to upload. They are kept as local previews — click Save again to retry.`,
+        false
+      );
+    }
+
     return { nextItems, nextAlbums };
   };
 
@@ -554,6 +660,7 @@ export default function GallerySection({ content = {}, albumId = null }) {
 
     // Upload cover image first if it's local
     let finalCover = albumForm.coverImage;
+    const previousCover = editingAlbum ? albumList.find(a => a.id === editingAlbum.id)?.coverImage : null;
     if (albumForm.coverImage && albumForm.coverImage.startsWith('data:image')) {
       const coverFile = pendingUploadsRef.current['cover-image'];
       if (coverFile) {
@@ -562,6 +669,10 @@ export default function GallerySection({ content = {}, albumId = null }) {
         try {
           finalCover = await uploadImage(coverFile);
           delete pendingUploadsRef.current['cover-image'];
+          // Drop the old cover from ImageKit if no photo references it anymore
+          if (previousCover && previousCover.startsWith('http') && !items.some(g => isSameImage(g.imgUrl, previousCover))) {
+            queueImageDeletion(previousCover);
+          }
         } catch (err) {
           showToast('error', 'Failed to upload cover image.');
           setBulkUploading(false);
@@ -581,7 +692,8 @@ export default function GallerySection({ content = {}, albumId = null }) {
           coverImage: finalCover,
           titleEn: albumForm.titleEn.trim(), 
           titleNe: albumForm.titleNe.trim(), 
-          description: albumForm.description.trim() 
+          description: albumForm.description.trim(),
+          descriptionNe: albumForm.descriptionNe.trim(),
         };
       }
       showToast('success', 'Album updated successfully!');
@@ -591,6 +703,7 @@ export default function GallerySection({ content = {}, albumId = null }) {
         titleEn: albumForm.titleEn.trim(),
         titleNe: albumForm.titleNe.trim(),
         description: albumForm.description.trim(),
+        descriptionNe: albumForm.descriptionNe.trim(),
         eventId: albumForm.eventId,
         coverImage: finalCover,
       });
@@ -614,6 +727,10 @@ export default function GallerySection({ content = {}, albumId = null }) {
     const nextGallery = items.map(g => (g.albumId || '') === album.id ? { ...g, albumId: '' } : g);
     updateDraftArray('albums', nextAlbums);
     updateDraftArray('gallery', nextGallery);
+    // Remove the custom cover from ImageKit if no photo still references it
+    if (album.coverImage && !nextGallery.some(g => isSameImage(g.imgUrl, album.coverImage))) {
+      queueImageDeletion(album.coverImage);
+    }
     // Persist immediately so the deletion survives a refresh even if Save isn't clicked
     persistContent({ ...draft, albums: nextAlbums, gallery: nextGallery }).catch(() => {});
     if (isAlbumView) openGalleryIndex();
@@ -704,13 +821,16 @@ export default function GallerySection({ content = {}, albumId = null }) {
       const file = files[i];
       setBatchProgress({ current: i + 1, total: files.length, actionText: `Loading ${file.name}...` });
       try {
-        const localUrl = await readFileAsBase64(file);
+        // Compress first so the local preview AND the upload are small/fast.
+        // (Also converts iPhone HEIC to JPEG in Safari.)
+        const uploadFile = await compressImage(file);
+        const localUrl = await readFileAsBase64(uploadFile);
         const tempId = `temp-${Date.now()}-${i}`;
         
-        pendingUploadsRef.current[tempId] = file;
+        pendingUploadsRef.current[tempId] = uploadFile;
 
         // Clean caption default from filename
-        const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        const cleanName = (uploadFile.name || file.name).replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
 
         localItems.push({
           id: tempId,
@@ -839,7 +959,7 @@ export default function GallerySection({ content = {}, albumId = null }) {
                       </h2>
                       <p style={{ margin: '2px 0 0', color: '#64748b', fontSize: '0.84rem' }}>
                         {activeAlbum?.titleNe && <span className="devanagari" style={{ marginRight: 6 }}>{activeAlbum.titleNe}</span>}
-                        {activeAlbum?.description || (lang === 'en'
+                        {(lang === 'en' ? activeAlbum?.description : activeAlbum?.descriptionNe) || (lang === 'en'
                           ? 'Upload and manage photos in this album.'
                           : 'यस एल्बममा तस्बिरहरू अपलोड र व्यवस्थापन गर्नुहोस्।')}
                       </p>
@@ -1755,6 +1875,25 @@ export default function GallerySection({ content = {}, albumId = null }) {
               </div>
               <div style={{ marginBottom: 16 }}>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#475569', marginBottom: 6 }}>Album Title (Nepali)</label>
+                <button
+                  type="button"
+                  onClick={handleAutoTranslateAlbumTitle}
+                  disabled={translatingAlbumTitle}
+                  style={{
+                    padding: '4px 12px',
+                    border: '1px solid #166534',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                    fontSize: '0.78rem',
+                    background: translatingAlbumTitle ? '#dcfce7' : '#ecfdf5',
+                    color: '#166534',
+                    marginBottom: 6,
+                    opacity: translatingAlbumTitle ? 0.6 : 1,
+                  }}
+                >
+                  {translatingAlbumTitle ? 'Translating…' : '⟳ Auto-translate to नेपाली'}
+                </button>
                 <input
                   type="text"
                   value={albumForm.titleNe}
@@ -1772,6 +1911,36 @@ export default function GallerySection({ content = {}, albumId = null }) {
                   onChange={(e) => setAlbumForm({ ...albumForm, description: e.target.value })}
                   placeholder="Briefly describe this album..."
                   style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: '0.92rem', outline: 'none', resize: 'vertical' }}
+                />
+              </div>
+              <div style={{ marginBottom: 24 }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#475569', marginBottom: 6 }}>Description (Nepali)</label>
+                <button
+                  type="button"
+                  onClick={handleAutoTranslateAlbumDesc}
+                  disabled={translatingAlbumDesc}
+                  style={{
+                    padding: '4px 12px',
+                    border: '1px solid #166534',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                    fontSize: '0.78rem',
+                    background: translatingAlbumDesc ? '#dcfce7' : '#ecfdf5',
+                    color: '#166534',
+                    marginBottom: 6,
+                    opacity: translatingAlbumDesc ? 0.6 : 1,
+                  }}
+                >
+                  {translatingAlbumDesc ? 'Translating…' : '⟳ Auto-translate to नेपाली'}
+                </button>
+                <textarea
+                  rows={3}
+                  className="devanagari"
+                  value={albumForm.descriptionNe}
+                  onChange={(e) => setAlbumForm({ ...albumForm, descriptionNe: e.target.value })}
+                  placeholder="यो एल्बमबारे संक्षिप्त वर्णन लेख्नुहोस्..."
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: '0.95rem', outline: 'none', resize: 'vertical' }}
                 />
               </div>
               <div style={{ marginBottom: 24 }}>
@@ -1939,6 +2108,25 @@ export default function GallerySection({ content = {}, albumId = null }) {
               >
                 Nepali Caption (नेपाली)
               </label>
+              <button
+                type="button"
+                onClick={handleAutoTranslateCaption}
+                disabled={translatingCaption}
+                style={{
+                  padding: '4px 12px',
+                  border: '1px solid #166534',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                  background: translatingCaption ? '#dcfce7' : '#ecfdf5',
+                  color: '#166534',
+                  marginBottom: 6,
+                  opacity: translatingCaption ? 0.6 : 1,
+                }}
+              >
+                {translatingCaption ? 'Translating…' : '⟳ Auto-translate to नेपाली'}
+              </button>
               <input
                 type="text"
                 value={items[editingCaptionIndex]?.captionNe || ''}
