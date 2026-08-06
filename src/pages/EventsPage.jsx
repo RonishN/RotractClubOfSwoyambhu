@@ -43,6 +43,7 @@ export default function EventsPage() {
   const [proudIdx, setProudIdx] = useState(0);
   const [hoverPaused, setHoverPaused] = useState(false);
   const manualPauseUntil = useRef(0);
+  const [proudRatios, setProudRatios] = useState({});
 
   const ref = useFadeIn(0.15, [loading, selectedCategory, searchTerm]);
 
@@ -90,6 +91,20 @@ export default function EventsPage() {
     setProudIdx(0);
   }, [highlights]);
 
+  // Scroll to a specific event when navigated from the featured-event popup (?event=<id>)
+  useEffect(() => {
+    const evId = searchParams.get('event');
+    if (!evId || events.length === 0) return;
+    const el = document.getElementById(`event-${evId}`);
+    if (!el) return;
+    const t = setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('event-row-highlight');
+      setTimeout(() => el.classList.remove('event-row-highlight'), 3200);
+    }, 150);
+    return () => clearTimeout(t);
+  }, [searchParams, events]);
+
   // Auto-rotate every 5s, paused while hovering or for 20s after manual nav
   useEffect(() => {
     if (highlights.length <= 1) return;
@@ -97,7 +112,7 @@ export default function EventsPage() {
       if (hoverPaused) return;
       if (Date.now() < manualPauseUntil.current) return;
       setProudIdx((p) => (p + 1) % highlights.length);
-    }, 5000);
+    }, 10000);
     return () => clearInterval(t);
   }, [highlights.length, hoverPaused]);
 
@@ -105,6 +120,17 @@ export default function EventsPage() {
     setProudIdx(((i % highlights.length) + highlights.length) % highlights.length);
     manualPauseUntil.current = Date.now() + 20000;
   };
+
+  const handleProudImgLoad = (id, e) => {
+    if (!e.currentTarget.naturalWidth || !e.currentTarget.naturalHeight) return;
+    const ratio = e.currentTarget.naturalWidth / e.currentTarget.naturalHeight;
+    setProudRatios((prev) => (prev[id] === ratio ? prev : { ...prev, [id]: ratio }));
+  };
+
+  const activeHighlight = highlights.length > 1 ? highlights[proudIdx] : highlights[0];
+  const currentProudRatio = activeHighlight && proudRatios[activeHighlight.id]
+    ? proudRatios[activeHighlight.id]
+    : 16 / 9;
 
   const handleSubscribeSubmit = async (e) => {
     e.preventDefault();
@@ -327,42 +353,45 @@ export default function EventsPage() {
           </div>
         )}
 
-        {/* ── PROUD MOMENTS: light cinematic slider ── */}
+        {/* ── PROUD MOMENTS: saffron spotlight band (text left, image right) ── */}
         {loading ? (
           <section className="proud proud-sk" aria-busy="true">
-            <div className="sk brand" style={{ height: '75vh', minHeight: 340, width: '100%' }} />
+            <div className="proud-inner">
+              <div className="proud-media">
+                <div className="sk brand" style={{ position: 'absolute', inset: 0, borderRadius: 0 }} />
+              </div>
+              <div className="proud-body">
+                <div className="sk brand" style={{ height: 10, width: 130, borderRadius: 999, marginBottom: 18 }} />
+                <div className="sk brand" style={{ height: 30, width: '55%', marginBottom: 16 }} />
+                <div className="sk brand" style={{ height: 13, width: '92%', marginBottom: 8 }} />
+                <div className="sk brand" style={{ height: 13, width: '70%', marginBottom: 26 }} />
+              </div>
+            </div>
           </section>
         ) : highlights.length > 0 && (
           <section className="proud">
-              {highlights.length > 1 ? (
-                <div
-                  className="proud-slider"
-                  onMouseEnter={() => setHoverPaused(true)}
-                  onMouseLeave={() => setHoverPaused(false)}
-                >
-                  <div className="proud-viewport">
-                    <div className="proud-head">
-                      <span className="proud-kicker">
-                        <i className="fa-solid fa-trophy" />
-                        {lang === 'en' ? 'Milestones & Accolades' : 'उपलब्धि र सम्मान'}
-                      </span>
-                      <h2 className="proud-title">
-                        {lang === 'en' ? 'Proud Moments' : <span className="devanagari">गौरवका क्षणहरू</span>}
-                      </h2>
-                    </div>
-                    {highlights.map((h, idx) => (
-                      <article
-                        key={h.id}
-                        className={`proud-slide ${idx === proudIdx ? 'active' : ''}`}
-                        aria-hidden={idx !== proudIdx}
-                      >
-                        {h.imageUrl ? (
-                          <img src={h.imageUrl} alt={h.title} loading="lazy" />
-                        ) : (
-                          <div className="proud-slide-empty"><i className="fa-solid fa-medal" /></div>
-                        )}
-                        <div className="proud-slide-shade" />
-                        <div className="proud-slide-caption">
+            {highlights.length > 1 ? (
+              <div
+                className="proud-slider"
+                onMouseEnter={() => setHoverPaused(true)}
+                onMouseLeave={() => setHoverPaused(false)}
+              >
+                <div className="proud-inner">
+                  <div className="proud-body">
+                    <span className="proud-kicker">
+                      <i className="fa-solid fa-trophy" />
+                      {lang === 'en' ? 'Milestones & Accolades' : 'उपलब्धि र सम्मान'}
+                    </span>
+                    <h2 className="proud-title">
+                      {lang === 'en' ? 'Proud Moments' : <span className="devanagari">गौरवका क्षणहरू</span>}
+                    </h2>
+                    <div className="proud-texts">
+                      {highlights.map((h, idx) => (
+                        <div
+                          key={h.id}
+                          className={`proud-text ${idx === proudIdx ? 'active' : ''}`}
+                          aria-hidden={idx !== proudIdx}
+                        >
                           {h.badge && (
                             <span className="proud-badge">
                               <i className="fa-solid fa-star" /> {h.badge}
@@ -372,7 +401,23 @@ export default function EventsPage() {
                           {h.titleNe && <div className="devanagari">{h.titleNe}</div>}
                           {h.description && <p>{h.description}</p>}
                         </div>
-                      </article>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="proud-media" style={{ aspectRatio: currentProudRatio }}>
+                    {highlights.map((h, idx) => (
+                      <div
+                        key={h.id}
+                        className={`proud-media-slide ${idx === proudIdx ? 'active' : ''}`}
+                        aria-hidden={idx !== proudIdx}
+                      >
+                        {h.imageUrl ? (
+                          <img src={h.imageUrl} alt={h.title} loading="lazy" onLoad={(e) => handleProudImgLoad(h.id, e)} />
+                        ) : (
+                          <div className="proud-slide-empty"><i className="fa-solid fa-medal" /></div>
+                        )}
+                      </div>
                     ))}
                   </div>
 
@@ -392,48 +437,48 @@ export default function EventsPage() {
                   >
                     <i className="fa-solid fa-chevron-right" />
                   </button>
-
-                  <div className="proud-dots">
-                    {highlights.map((h, i) => (
-                      <button
-                        key={h.id}
-                        type="button"
-                        aria-label={`Go to proud moment ${i + 1}`}
-                        className={`proud-dot ${i === proudIdx ? 'active' : ''}`}
-                        onClick={() => goProud(i)}
-                      />
-                    ))}
-                  </div>
                 </div>
-              ) : (
-                <article className="proud-slide proud-single">
-                  <div className="proud-head">
-                    <span className="proud-kicker">
-                      <i className="fa-solid fa-trophy" />
-                      {lang === 'en' ? 'Milestones & Accolades' : 'उपलब्धि र सम्मान'}
+
+                <div className="proud-dots">
+                  {highlights.map((h, i) => (
+                    <button
+                      key={h.id}
+                      type="button"
+                      aria-label={`Go to proud moment ${i + 1}`}
+                      className={`proud-dot ${i === proudIdx ? 'active' : ''}`}
+                      onClick={() => goProud(i)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="proud-inner proud-single">
+                <div className="proud-body">
+                  <span className="proud-kicker">
+                    <i className="fa-solid fa-trophy" />
+                    {lang === 'en' ? 'Milestones & Accolades' : 'उपलब्धि र सम्मान'}
+                  </span>
+                  <h2 className="proud-title">
+                    {lang === 'en' ? 'Proud Moments' : <span className="devanagari">गौरवका क्षणहरू</span>}
+                  </h2>
+                  {highlights[0].badge && (
+                    <span className="proud-badge">
+                      <i className="fa-solid fa-star" /> {highlights[0].badge}
                     </span>
-                    <h2 className="proud-title">
-                      {lang === 'en' ? 'Proud Moments' : <span className="devanagari">गौरवका क्षणहरू</span>}
-                    </h2>
-                  </div>
+                  )}
+                  <h3>{highlights[0].title}</h3>
+                  {highlights[0].titleNe && <div className="devanagari">{highlights[0].titleNe}</div>}
+                  {highlights[0].description && <p>{highlights[0].description}</p>}
+                </div>
+                <div className="proud-media" style={{ aspectRatio: currentProudRatio }}>
                   {highlights[0].imageUrl ? (
-                    <img src={highlights[0].imageUrl} alt={highlights[0].title} loading="lazy" />
+                    <img src={highlights[0].imageUrl} alt={highlights[0].title} loading="lazy" onLoad={(e) => handleProudImgLoad(highlights[0].id, e)} />
                   ) : (
                     <div className="proud-slide-empty"><i className="fa-solid fa-medal" /></div>
                   )}
-                  <div className="proud-slide-shade" />
-                  <div className="proud-slide-caption">
-                    {highlights[0].badge && (
-                      <span className="proud-badge">
-                        <i className="fa-solid fa-star" /> {highlights[0].badge}
-                      </span>
-                    )}
-                    <h3>{highlights[0].title}</h3>
-                    {highlights[0].titleNe && <div className="devanagari">{highlights[0].titleNe}</div>}
-                    {highlights[0].description && <p>{highlights[0].description}</p>}
-                  </div>
-                </article>
-              )}
+                </div>
+              </div>
+            )}
           </section>
         )}
 
@@ -519,7 +564,7 @@ export default function EventsPage() {
               const isPast = ev.eventDate < todayStr;
               const linkedAlbum = albums.find(a => a.eventId === ev.id);
               return (
-                <article key={ev.id} className="event-row" style={{ animationDelay: `${(idx % 2) * 80}ms` }}>
+                <article key={ev.id} id={`event-${ev.id}`} className="event-row" style={{ animationDelay: `${(idx % 2) * 80}ms` }}>
                   {/* Media */}
                   <div className="event-row-media">
                     {ev.pictures && ev.pictures.length > 0 ? (

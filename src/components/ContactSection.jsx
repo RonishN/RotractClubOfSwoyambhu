@@ -1,16 +1,25 @@
 import React, { useState } from 'react';
 import { useLang } from '../context/LanguageContext';
+import { useEditMode } from '../context/EditModeContext';
 import useFadeIn from '../hooks/useFadeIn';
 import { subscribeToEvents } from '../api/client';
+import EditableImage from './EditableImage';
+import StupaSkyline from './StupaSkyline';
+import heroImage from '../assets/images/heroimage.jpg';
 
-export default function ContactSection() {
+export default function ContactSection({ content }) {
   const { lang } = useLang();
+  const { draft, updateDraftField } = useEditMode();
   const ref = useFadeIn();
 
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  const hasDraft = draft && Object.keys(draft).length > 0;
+  const displayContent = hasDraft ? draft : (content || {});
+  const contactImage = displayContent.contactImage || heroImage;
 
   const handleSubscribe = async (e) => {
     e.preventDefault();
@@ -34,216 +43,236 @@ export default function ContactSection() {
     }
   };
 
+  const infoRow = {
+    display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.2rem',
+    background: '#FFFFFF', borderRadius: '16px', border: '1.5px solid #E9D9BD',
+    textDecoration: 'none', color: '#2B121C', transition: 'all 0.3s ease',
+    boxShadow: '0 8px 22px rgba(79, 18, 34, 0.07)'
+  };
+
+  const infoRowHover = {
+    borderColor: 'rgba(223, 169, 46, 0.7)',
+    transform: 'translateY(-2px)',
+    boxShadow: '0 14px 32px rgba(79, 18, 34, 0.13)'
+  };
+
+  const infoChip = {
+    width: '46px', height: '46px', borderRadius: '13px', flexShrink: 0,
+    background: 'linear-gradient(135deg, #7A1F34 0%, #9E2C46 100%)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    boxShadow: '0 6px 16px rgba(122, 31, 52, 0.3)'
+  };
+
   return (
-    <section id="contact" style={{ position: 'relative', overflow: 'hidden', padding: '6rem 5% 5rem', background: 'linear-gradient(135deg, #1e0912 0%, #3d0c1b 50%, #15050b 100%)', color: '#FCFBF7' }} ref={ref}>
-      {/* Primary Glow Background Effect */}
-      <div style={{
-        position: 'absolute', top: '-150px', left: '50%', transform: 'translateX(-50%)',
-        width: '600px', height: '400px', background: 'radial-gradient(circle, rgba(121, 33, 60, 0.5) 0%, rgba(180, 58, 93, 0.15) 50%, transparent 80%)',
-        filter: 'blur(60px)', pointerEvents: 'none'
-      }} />
+    <section id="contact" className="lokta-texture contact-heritage" ref={ref} style={{
+      position: 'relative', overflow: 'hidden', padding: '8rem 5% 11rem',
+      background: 'linear-gradient(180deg, #F2DEB4 0%, #EBD2A3 14%, #FBEFDA 46%, #FAF3E6 100%)',
+      color: '#2B121C'
+    }}>
+      {/* Gold ornament separating us from the Events section */}
+      <svg className="contact-ornament" viewBox="0 0 220 24" width="220" height="24" aria-hidden="true" style={{ display: 'block', margin: '0 auto 2.6rem' }}>
+        <line x1="0" y1="12" x2="86" y2="12" stroke="#C98A2B" strokeWidth="1.5" />
+        <line x1="134" y1="12" x2="220" y2="12" stroke="#C98A2B" strokeWidth="1.5" />
+        <rect x="105" y="5" width="10" height="10" fill="#EE7F13" transform="rotate(45 110 10)" />
+        <rect x="94" y="10" width="5" height="5" fill="#DFA92E" transform="rotate(45 96.5 12.5)" />
+        <rect x="121" y="10" width="5" height="5" fill="#DFA92E" transform="rotate(45 123.5 12.5)" />
+      </svg>
 
-      <div style={{ maxWidth: '1140px', margin: '0 auto', position: 'relative', zIndex: 10 }}>
-        
-        {/* Main Header */}
-        <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
-          <span style={{
-            fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '2px',
-            color: '#b33a5d', background: 'rgba(179, 58, 93, 0.15)', padding: '6px 16px', borderRadius: '20px',
-            border: '1px solid rgba(179, 58, 93, 0.3)', display: 'inline-block', marginBottom: '1rem'
-          }}>
-            {lang === 'en' ? 'Connect & Grow With Us' : 'हामीसँग जोडिनुहोस्'}
-          </span>
-          <h2 style={{ fontSize: '2.4rem', fontWeight: 800, color: '#FCFBF7', margin: 0, fontFamily: 'var(--font-sans-bold)' }}>
-            {lang === 'en' ? "We'd Love to Have You" : <span className="devanagari">हामीसँग जोडिनुहोस्</span>}
-          </h2>
-          <p style={{ maxWidth: '640px', margin: '1rem auto 0', color: 'rgba(252, 251, 247, 0.8)', fontSize: '1.02rem', lineHeight: 1.6 }}>
-            {lang === 'en'
-              ? 'Whether you want to partner on a community project, ask a question, or become a proud member of Rotaract Swoyambhu — our doors and hearts are always open.'
-              : 'चाहे तपाईं कुनै सामाजिक परियोजनामा सहकार्य गर्न चाहनुहुन्छ, सोधपुछ गर्न चाहनुहुन्छ वा रोटर्याक्ट स्वयम्भूको सदस्य बन्न चाहनुहुन्छ — हाम्रा ढोकाहरू सधैं खुला छन्।'}
-          </p>
-        </div>
+      {/* Swoyambhu stupa skyline — melts into the maroon footer below */}
+      <div className="contact-skyline-wrap" aria-hidden="true">
+        <StupaSkyline />
+      </div>
 
-        {/* 2-Column Split Layout */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2.5rem', alignItems: 'stretch' }}>
-          
-          {/* Left Column: Direct Contact & Info Cards */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', justifyContent: 'center' }}>
-            
-            {/* Email Card */}
-            <a
-              href="https://mail.google.com/mail/?view=cm&fs=1&to=rac.swoyambhu01@gmail.com"
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                display: 'flex', alignItems: 'center', gap: '1.25rem', padding: '1.25rem 1.5rem',
-                background: 'rgba(255, 255, 255, 0.05)', borderRadius: '18px', border: '1px solid rgba(255, 255, 255, 0.1)',
-                textDecoration: 'none', color: '#FCFBF7', transition: 'all 0.3s ease', backdropFilter: 'blur(10px)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                e.currentTarget.style.borderColor = 'var(--primary-lighter, #b33a5d)';
-                e.currentTarget.style.transform = 'translateY(-3px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
-            >
-              <div style={{
-                width: '50px', height: '50px', borderRadius: '14px', background: 'linear-gradient(135deg, #79213C, #b33a5d)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 6px 16px rgba(121, 33, 60, 0.4)'
-              }}>
-                <i className="fa-solid fa-envelope" style={{ fontSize: '1.3rem', color: '#ffffff' }} />
+      <div style={{ maxWidth: '1180px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
+        <div className="contact-split">
+
+          {/* Dark maroon visual column */}
+          <div className="contact-visual fade-in" style={{ position: 'relative' }}>
+            <div className="contact-visual-frame">
+              <EditableImage
+                src={contactImage}
+                alt={lang === 'en' ? 'Swoyambhu Stupa' : 'स्वयम्भू स्तूप'}
+                className="contact-visual-img"
+                style={{ borderRadius: '24px' }}
+                onChange={(url) => updateDraftField('contactImage', url)}
+                cropType="portrait"
+              />
+              <div className="contact-visual-shade" />
+              <div className="contact-visual-mandala" aria-hidden="true">
+                <span className="mandala-wheel"><span></span><span></span><span></span></span>
               </div>
-              <div>
-                <div style={{ fontSize: '0.78rem', color: 'rgba(252, 251, 247, 0.6)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>
-                  {lang === 'en' ? 'Send Us an Email' : 'इमेल गर्नुहोस्'}
-                </div>
-                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#FCFBF7', marginTop: '2px' }}>
-                  rac.swoyambhu01@gmail.com
-                </div>
+              <div className="contact-visual-quote">
+                <span className="contact-visual-quote-big">"</span>
+                <span className="contact-visual-quote-text">
+                  {lang === 'en' ? 'Service Above Self — in the shadow of the Swoyambhu Stupa.' : 'स्वार्थ भन्दा माथि सेवा — स्वयम्भू स्तूपको छहारीमा।'}
+                </span>
               </div>
-            </a>
-
-            {/* Location Card */}
-            <a
-              href="https://www.google.com/maps?q=swoyambhu"
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                display: 'flex', alignItems: 'center', gap: '1.25rem', padding: '1.25rem 1.5rem',
-                background: 'rgba(255, 255, 255, 0.05)', borderRadius: '18px', border: '1px solid rgba(255, 255, 255, 0.1)',
-                textDecoration: 'none', color: '#FCFBF7', transition: 'all 0.3s ease', backdropFilter: 'blur(10px)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                e.currentTarget.style.borderColor = 'var(--primary-lighter, #b33a5d)';
-                e.currentTarget.style.transform = 'translateY(-3px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
-            >
-              <div style={{
-                width: '50px', height: '50px', borderRadius: '14px', background: 'linear-gradient(135deg, #79213C, #b33a5d)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 6px 16px rgba(121, 33, 60, 0.4)'
-              }}>
-                <i className="fa-solid fa-location-dot" style={{ fontSize: '1.3rem', color: '#ffffff' }} />
-              </div>
-              <div>
-                <div style={{ fontSize: '0.78rem', color: 'rgba(252, 251, 247, 0.6)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>
-                  {lang === 'en' ? 'Our Location' : 'हाम्रो ठेगाना'}
-                </div>
-                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#FCFBF7', marginTop: '2px' }}>
-                  {lang === 'en' ? 'Swoyambhu, Kathmandu, Nepal' : 'स्वयम्भू, काठमाडौं, नेपाल'}
-                </div>
-              </div>
-            </a>
-
-            {/* Register to Club CTA */}
-            <a
-              href="https://web.whatsapp.com/send?phone=9779849786214"
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                padding: '1.1rem 1.8rem', borderRadius: '18px', background: 'linear-gradient(135deg, #79213C, #b33a5d)',
-                color: '#ffffff', textDecoration: 'none', fontWeight: 800, fontSize: '1rem',
-                boxShadow: '0 8px 24px rgba(121, 33, 60, 0.4)', transition: 'all 0.3s ease', marginTop: '0.5rem'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 12px 30px rgba(121, 33, 60, 0.6)';
-                e.currentTarget.style.background = 'linear-gradient(135deg, #962d4c, #b33a5d)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 8px 24px rgba(121, 33, 60, 0.4)';
-                e.currentTarget.style.background = 'linear-gradient(135deg, #79213C, #b33a5d)';
-              }}
-            >
-              <i className="fa-solid fa-user-plus" style={{ fontSize: '1.1rem' }} />
-              <span>{lang === 'en' ? 'Register to Club' : 'क्लबमा दर्ता हुनुहोस्'}</span>
-            </a>
-
+            </div>
+            <div className="contact-visual-caption">
+              <span>{lang === 'en' ? 'Swoyambhu, Kathmandu' : 'स्वयम्भू, काठमाडौं'}</span>
+              <span>Rotary International District 3292</span>
+            </div>
           </div>
 
-          {/* Right Column: Newsletter & Event Alerts Form */}
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.04)', borderRadius: '24px', border: '1px solid rgba(255, 255, 255, 0.1)',
-            padding: '2.5rem 2rem', backdropFilter: 'blur(16px)', display: 'flex', flexDirection: 'column', justifyContent: 'center'
-          }}>
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#FCFBF7', margin: '0 0 0.5rem', fontFamily: 'var(--font-sans-bold)' }}>
-                {lang === 'en' ? 'Stay Updated With Events' : 'कार्यक्रमका अद्यावधिकहरू पाउनुहोस्'}
-              </h3>
-              <p style={{ fontSize: '0.9rem', color: 'rgba(252, 251, 247, 0.7)', margin: 0, lineHeight: 1.5 }}>
+          {/* Light content column */}
+          <div className="contact-content">
+            <div className="section-header fade-in" style={{ textAlign: 'left', marginBottom: '2rem' }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: '0.6rem',
+                fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.28em',
+                color: '#B8532A', background: 'rgba(238, 127, 19, 0.08)',
+                padding: '0.5rem 1.3rem', borderRadius: '999px',
+                border: '1px solid rgba(238, 127, 19, 0.3)', marginBottom: '1rem'
+              }}>
+                <i className="fa-solid fa-hands-holding" style={{ fontSize: '0.72rem' }} />
+                {lang === 'en' ? 'Connect & Grow With Us' : 'हामीसँग जोडिनुहोस्'}
+              </span>
+              <h2 className="section-title" style={{ margin: 0 }}>
+                {lang === 'en' ? "We'd Love to Have You" : <span className="devanagari">हामीसँग जोडिनुहोस्</span>}
+              </h2>
+              <p style={{
+                maxWidth: '540px', margin: '1rem 0 0', color: '#6B4F38', fontSize: '1rem', lineHeight: 1.7
+              }}>
                 {lang === 'en'
-                  ? 'Subscribe to get instant email notifications whenever we announce new youth programs, community service drives, or workshops.'
-                  : 'नयाँ कार्यक्रमहरू वा कार्यशालाहरू घोषणा हुँदा इमेलमा सूचना प्राप्त गर्न सदस्यता लिनुहोस्।'}
+                  ? 'Partner on a project, ask a question, or become a proud member of Rotaract Swoyambhu — our doors and hearts are always open.'
+                  : 'परियोजनामा सहकार्य गर्न, सोधपुछ गर्न वा रोटर्याक्ट स्वयम्भूको सदस्य बन्न — हाम्रा ढोकाहरू सधैं खुला छन्।'}
               </p>
             </div>
 
-            {message && (
-              <div style={{ background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.3)', color: '#4ade80', padding: '12px 16px', borderRadius: '12px', fontSize: '0.88rem', fontWeight: 600, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <i className="fa-solid fa-circle-check" /> {message}
-              </div>
-            )}
+            {/* Two cards: contact / newsletter */}
+            <div className="contact-cards fade-in delay-1" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
-            {error && (
-              <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', padding: '12px 16px', borderRadius: '12px', fontSize: '0.88rem', fontWeight: 600, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <i className="fa-solid fa-triangle-exclamation" /> {error}
+              {/* Card 1 — message + contact */}
+              <div className="contact-card">
+                <div className="contact-card-head">
+                  <i className="fa-solid fa-message" />
+                  <span>{lang === 'en' ? 'Say hello' : 'नमस्ते भन्नुहोस्'}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+                  <a
+                    href="https://mail.google.com/mail/?view=cm&fs=1&to=rac.swoyambhu01@gmail.com"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={infoRow}
+                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, infoRowHover)}
+                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, infoRow)}
+                  >
+                    <div style={infoChip}>
+                      <i className="fa-solid fa-envelope" style={{ fontSize: '1.1rem', color: '#FFF6E9' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.72rem', color: '#8A6A52', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                        {lang === 'en' ? 'Email' : 'इमेल'}
+                      </div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#4F1222', marginTop: '2px' }}>
+                        rac.swoyambhu01@gmail.com
+                      </div>
+                    </div>
+                  </a>
+                  <a
+                    href="https://www.google.com/maps?q=swoyambhu"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={infoRow}
+                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, infoRowHover)}
+                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, infoRow)}
+                  >
+                    <div style={infoChip}>
+                      <i className="fa-solid fa-location-dot" style={{ fontSize: '1.1rem', color: '#FFF6E9' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.72rem', color: '#8A6A52', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                        {lang === 'en' ? 'Location' : 'ठेगाना'}
+                      </div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#4F1222', marginTop: '2px' }}>
+                        {lang === 'en' ? 'Swoyambhu, Kathmandu, Nepal' : 'स्वयम्भू, काठमाडौं, नेपाल'}
+                      </div>
+                    </div>
+                  </a>
+                  <a
+                    href="https://web.whatsapp.com/send?phone=9779849786214"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                      padding: '1rem 1.6rem', borderRadius: '999px',
+                      background: 'linear-gradient(135deg, #EE7F13 0%, #DFA92E 100%)',
+                      color: '#4F1222', textDecoration: 'none', fontWeight: 800, fontSize: '0.98rem',
+                      boxShadow: '0 10px 26px rgba(238, 127, 19, 0.35)', transition: 'all 0.3s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 16px 38px rgba(238, 127, 19, 0.5)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 10px 26px rgba(238, 127, 19, 0.35)';
+                    }}
+                  >
+                    <i className="fa-solid fa-user-plus" style={{ fontSize: '1.05rem' }} />
+                    <span>{lang === 'en' ? 'Register to Club' : 'क्लबमा दर्ता हुनुहोस्'}</span>
+                  </a>
+                </div>
               </div>
-            )}
 
-            <form onSubmit={handleSubscribe} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type="email"
-                  placeholder={lang === 'en' ? 'Enter your email address...' : 'आफ्नो इमेल राख्नुहोस्...'}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  style={{
-                    width: '100%', padding: '14px 18px', borderRadius: '14px',
-                    background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.2)',
-                    color: '#FCFBF7', fontSize: '0.95rem', outline: 'none', transition: 'all 0.2s',
-                    boxSizing: 'border-box'
-                  }}
-                  onFocus={(e) => { e.target.style.borderColor = '#b33a5d'; e.target.style.background = 'rgba(255, 255, 255, 0.12)'; }}
-                  onBlur={(e) => { e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'; e.target.style.background = 'rgba(255, 255, 255, 0.08)'; }}
-                />
-              </div>
+              {/* Card 2 — compact newsletter */}
+              <div className="contact-card">
+                <div className="contact-card-head">
+                  <i className="fa-solid fa-bell" />
+                  <span>{lang === 'en' ? 'Event alerts' : 'कार्यक्रम सूचना'}</span>
+                </div>
+                <p style={{ fontSize: '0.88rem', color: '#6B4F38', margin: '0 0 1rem', lineHeight: 1.6 }}>
+                  {lang === 'en'
+                    ? 'Get notified whenever we announce new programs, drives or workshops.'
+                    : 'नयाँ कार्यक्रम, अभियान वा कार्यशाला घोषणा हुँदा सूचना पाउनुहोस्।'}
+                </p>
 
-              <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  padding: '14px 24px', borderRadius: '14px', border: 'none',
-                  background: 'linear-gradient(135deg, #79213C, #b33a5d)',
-                  color: '#ffffff', fontWeight: 800, fontSize: '0.95rem', cursor: loading ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 6px 20px rgba(121, 33, 60, 0.4)', transition: 'all 0.25s ease',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
-                }}
-                onMouseEnter={(e) => { if (!loading) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 25px rgba(121, 33, 60, 0.6)'; e.currentTarget.style.background = 'linear-gradient(135deg, #962d4c, #b33a5d)'; } }}
-                onMouseLeave={(e) => { if (!loading) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(121, 33, 60, 0.4)'; e.currentTarget.style.background = 'linear-gradient(135deg, #79213C, #b33a5d)'; } }}
-              >
-                {loading ? (
-                  <span>{lang === 'en' ? 'Subscribing...' : 'सदस्यता लिइँदैछ...'}</span>
-                ) : (
-                  <>
-                    <span>{lang === 'en' ? 'Subscribe For Updates' : 'सदस्यता लिनुहोस्'}</span>
-                    <i className="fa-solid fa-paper-plane" style={{ fontSize: '0.88rem' }} />
-                  </>
+                {message && (
+                  <div style={{ background: 'rgba(34, 197, 94, 0.12)', border: '1px solid rgba(34, 197, 94, 0.35)', color: '#15803d', padding: '10px 14px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.9rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <i className="fa-solid fa-circle-check" /> {message}
+                  </div>
                 )}
-              </button>
-            </form>
-          </div>
+                {error && (
+                  <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.35)', color: '#b91c1c', padding: '10px 14px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.9rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <i className="fa-solid fa-triangle-exclamation" /> {error}
+                  </div>
+                )}
 
+                <form onSubmit={handleSubscribe} style={{ display: 'flex', gap: '0.6rem' }}>
+                  <input
+                    type="email"
+                    placeholder={lang === 'en' ? 'Your email...' : 'तपाईंको इमेल...'}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    style={{
+                      flex: 1, minWidth: 0, padding: '12px 16px', borderRadius: '999px',
+                      background: '#FBF5E9', border: '1.5px solid #E9D9BD',
+                      color: '#2B121C', fontSize: '0.92rem', outline: 'none', transition: 'all 0.2s'
+                    }}
+                    onFocus={(e) => { e.target.style.borderColor = '#EE7F13'; e.target.style.background = '#FFFFFF'; }}
+                    onBlur={(e) => { e.target.style.borderColor = '#E9D9BD'; e.target.style.background = '#FBF5E9'; }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    style={{
+                      flexShrink: 0, padding: '12px 20px', borderRadius: '999px', border: 'none',
+                      background: 'linear-gradient(135deg, #7A1F34 0%, #5A1326 100%)',
+                      color: '#FFF6E9', fontWeight: 800, fontSize: '0.9rem', cursor: loading ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 8px 22px rgba(122, 31, 52, 0.3)', transition: 'all 0.25s ease',
+                      display: 'flex', alignItems: 'center', gap: '8px'
+                    }}
+                    onMouseEnter={(e) => { if (!loading) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 30px rgba(122, 31, 52, 0.45)'; } }}
+                    onMouseLeave={(e) => { if (!loading) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 22px rgba(122, 31, 52, 0.3)'; } }}
+                  >
+                    {loading ? <span>{lang === 'en' ? '…' : '…'}</span> : <><span>{lang === 'en' ? 'Subscribe' : 'सदस्यता'}</span><i className="fa-solid fa-paper-plane" /></>}
+                  </button>
+                </form>
+              </div>
+
+            </div>
+          </div>
         </div>
       </div>
     </section>

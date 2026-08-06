@@ -39,37 +39,7 @@ function readFileAsBase64(file) {
   });
 }
 
-function PillBtn({ onClick, disabled, title, style = {}, children }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      style={{
-        width: 28,
-        height: 28,
-        borderRadius: '50%',
-        border: 'none',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.35 : 1,
-        transition: 'background 0.15s, transform 0.1s, opacity 0.15s',
-        ...style,
-      }}
-      onMouseEnter={(e) => {
-        if (!disabled) e.currentTarget.style.transform = 'scale(1.1)';
-      }}
-      onMouseLeave={(e) => {
-        if (!disabled) e.currentTarget.style.transform = 'scale(1)';
-      }}
-    >
-      {children}
-    </button>
-  );
-}
+
 
 function SortableGalleryItem({
   item,
@@ -87,111 +57,85 @@ function SortableGalleryItem({
   });
   const { isEditMode } = useEditMode();
   const { lang } = useLang();
+  const [hovered, setHovered] = useState(false);
+  const longPressRef = useRef(null);
 
-  const style = {
+  const sortableStyle = {
     transform: CSS.Transform.toString(transform),
     transition,
     position: 'relative',
-    zIndex: isDragging ? 99 : 1,
-    opacity: isDragging ? 0.8 : 1,
+    zIndex: isDragging ? 99 : hovered ? 10 : 1,
+    opacity: isDragging ? 0.75 : 1,
   };
 
+  // Mobile long-press to reveal toolbar
+  const handlePointerDown = () => {
+    longPressRef.current = setTimeout(() => setHovered(true), 400);
+  };
+  const handlePointerUp = () => {
+    clearTimeout(longPressRef.current);
+  };
+
+  const actions = [
+    {
+      icon: 'fa-eye',
+      label: 'Preview',
+      color: '#f59e0b',
+      bg: 'rgba(245,158,11,0.18)',
+      onClick: () => onOpenLightbox(lightboxIndex),
+    },
+    {
+      icon: 'fa-camera',
+      label: 'Replace',
+      color: '#60a5fa',
+      bg: 'rgba(96,165,250,0.18)',
+      onClick: () => onTriggerReplace(index),
+    },
+    {
+      icon: 'fa-pen',
+      label: 'Caption',
+      color: '#f9a8d4',
+      bg: 'rgba(249,168,212,0.18)',
+      onClick: () => setEditingCaptionIndex(index),
+    },
+    {
+      icon: 'fa-trash-can',
+      label: 'Delete',
+      color: '#f87171',
+      bg: 'rgba(248,113,113,0.18)',
+      onClick: () => {
+        if (window.confirm('Delete this photo from the gallery?')) handleDelete(index);
+      },
+    },
+  ];
+
   return (
-    <div ref={setNodeRef} style={style}>
-      {/* ── Edit mode: floating pill toolbar ── */}
-      {isEditMode && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            zIndex: 20,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 3,
-            background: 'rgba(36, 7, 19, 0.92)',
-            backdropFilter: 'blur(10px)',
-            borderRadius: 50,
-            padding: '4px 6px',
-            boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
-            border: '1px solid rgba(255,255,255,0.15)',
-          }}
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          {/* Drag Handle */}
-          <div
-            {...attributes}
-            {...listeners}
-            style={{
-              cursor: 'grab',
-              color: 'white',
-              padding: '0 4px',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-            title="Drag to reorder"
-          >
-            <i className="fa-solid fa-grip-vertical" style={{ fontSize: '11px' }} />
-          </div>
-
-          <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.2)', margin: '0 2px' }} />
-
-          {/* Preview / Lightbox */}
-          <PillBtn
-            onClick={() => onOpenLightbox(lightboxIndex)}
-            title="Enlarge & Preview Lightbox"
-            style={{ background: 'rgba(232, 135, 26, 0.3)', color: '#fcd34d' }}
-          >
-            <i className="fa-solid fa-eye" style={{ fontSize: '10px' }} />
-          </PillBtn>
-
-          {/* Replace Photo */}
-          <PillBtn
-            onClick={() => onTriggerReplace(index)}
-            title="Replace Photo"
-            style={{ background: 'rgba(59, 130, 246, 0.3)', color: '#93c5fd' }}
-          >
-            <i className="fa-solid fa-camera" style={{ fontSize: '10px' }} />
-          </PillBtn>
-
-          {/* Edit Captions */}
-          <PillBtn
-            onClick={() => setEditingCaptionIndex(index)}
-            title="Edit Captions"
-            style={{ background: 'rgba(121, 33, 60, 0.4)', color: '#fbcfe8' }}
-          >
-            <i className="fa-solid fa-pen" style={{ fontSize: '10px' }} />
-          </PillBtn>
-
-          <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.2)', margin: '0 2px' }} />
-
-          {/* Delete */}
-          <PillBtn
-            onClick={() => {
-              if (window.confirm('Delete this photo from the gallery?')) handleDelete(index);
-            }}
-            title="Delete Photo"
-            style={{ background: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5' }}
-          >
-            <i className="fa-solid fa-trash-can" style={{ fontSize: '10px' }} />
-          </PillBtn>
-        </div>
-      )}
-
-      {/* ── Card Image Container — uniform square thumbnail ── */}
+    <div
+      ref={setNodeRef}
+      style={sortableStyle}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onPointerDown={isEditMode ? handlePointerDown : undefined}
+      onPointerUp={isEditMode ? handlePointerUp : undefined}
+      onPointerCancel={isEditMode ? handlePointerUp : undefined}
+    >
+      {/* ── Card Image Container ── */}
       <div
         style={{
           borderRadius: 14,
           overflow: 'hidden',
-          background: 'white',
-          border: isDragging ? '2px solid #79213C' : '2px solid rgba(121, 33, 60, 0.15)',
+          background: '#111',
+          border: isDragging
+            ? '2px solid #79213C'
+            : hovered && isEditMode
+            ? '2px solid rgba(232,135,26,0.6)'
+            : '2px solid rgba(121,33,60,0.15)',
           boxShadow: isDragging
-            ? '0 12px 30px rgba(121, 33, 60, 0.25)'
+            ? '0 12px 30px rgba(121,33,60,0.35)'
+            : hovered && isEditMode
+            ? '0 8px 32px rgba(0,0,0,0.22)'
             : '0 4px 16px rgba(0,0,0,0.06)',
-          transition: 'all 0.2s ease',
+          transition: 'border 0.2s, box-shadow 0.2s',
           position: 'relative',
           cursor: isEditMode ? 'default' : 'pointer',
           aspectRatio: '1 / 1',
@@ -201,37 +145,166 @@ function SortableGalleryItem({
           if (!isEditMode) onOpenLightbox(lightboxIndex);
         }}
       >
+        {/* Photo */}
         <img
           src={item.imgUrl}
           alt={item.captionEn || `Photo ${index + 1}`}
           loading="lazy"
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
+            transition: 'transform 0.3s ease',
+            transform: hovered && isEditMode ? 'scale(1.04)' : 'scale(1)',
+          }}
         />
 
-        {/* Caption overlay */}
+        {/* Caption overlay (always visible) */}
         <div
           style={{
             position: 'absolute',
             bottom: 0,
             left: 0,
             right: 0,
-            background: 'linear-gradient(to top, rgba(36,7,19,0.88), transparent)',
-            padding: '1.75rem 0.75rem 0.6rem',
+            background: 'linear-gradient(to top, rgba(15,5,10,0.92), transparent)',
+            padding: '1.75rem 0.75rem 0.55rem',
             color: 'white',
             fontSize: '0.78rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 6,
+            opacity: hovered && isEditMode ? 0 : 1,
+            transition: 'opacity 0.2s',
+            pointerEvents: 'none',
           }}
         >
           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 500 }}>
             {lang === 'en' ? item.captionEn || item.captionNe : item.captionNe || item.captionEn || '—'}
           </span>
-          <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.75)', fontWeight: 700, flexShrink: 0 }}>
+          <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)', fontWeight: 700, flexShrink: 0 }}>
             #{index + 1}
           </span>
         </div>
+
+        {/* ── Edit Mode Hover Overlay ── */}
+        {isEditMode && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(160deg, rgba(10,4,8,0.72) 0%, rgba(20,6,14,0.88) 100%)',
+              backdropFilter: 'blur(3px)',
+              opacity: hovered ? 1 : 0,
+              transition: 'opacity 0.22s ease',
+              pointerEvents: hovered ? 'auto' : 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              padding: '10px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            {/* Top row: index badge + drag handle */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {/* Index badge */}
+              <span
+                style={{
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  color: 'rgba(255,255,255,0.5)',
+                  background: 'rgba(255,255,255,0.08)',
+                  borderRadius: 20,
+                  padding: '2px 8px',
+                  letterSpacing: '0.5px',
+                }}
+              >
+                #{index + 1}
+              </span>
+
+              {/* Drag handle */}
+              <div
+                {...attributes}
+                {...listeners}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'grab',
+                  color: 'rgba(255,255,255,0.7)',
+                  transition: 'background 0.15s',
+                  flexShrink: 0,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.18)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                title="Drag to reorder"
+              >
+                <i className="fa-solid fa-grip-vertical" style={{ fontSize: 11 }} />
+              </div>
+            </div>
+
+            {/* Bottom action bar */}
+            <div
+              style={{
+                display: 'flex',
+                gap: 6,
+                justifyContent: 'space-around',
+                background: 'rgba(0,0,0,0.35)',
+                borderRadius: 12,
+                padding: '8px 4px',
+                border: '1px solid rgba(255,255,255,0.07)',
+                backdropFilter: 'blur(8px)',
+              }}
+            >
+              {actions.map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); action.onClick(); }}
+                  title={action.label}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '7px 2px',
+                    borderRadius: 9,
+                    border: 'none',
+                    background: action.bg,
+                    color: action.color,
+                    cursor: 'pointer',
+                    transition: 'background 0.15s, transform 0.12s',
+                    minHeight: 44,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = action.bg.replace('0.18', '0.35');
+                    e.currentTarget.style.transform = 'scale(1.06)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = action.bg;
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                >
+                  <i className={`fa-solid ${action.icon}`} style={{ fontSize: 13 }} />
+                  <span style={{ fontSize: '0.58rem', fontWeight: 600, letterSpacing: '0.3px', opacity: 0.85 }}>
+                    {action.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

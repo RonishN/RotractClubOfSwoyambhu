@@ -121,7 +121,7 @@ export default function TeamSection({ content = {}, isLoading = false }) {
                 position: 'absolute',
                 top: 0,
                 right: 0,
-                background: '#79213C',
+                background: '#9E1F42',
                 color: 'white',
                 padding: '4px 8px',
                 borderRadius: '6px',
@@ -225,7 +225,7 @@ export default function TeamSection({ content = {}, isLoading = false }) {
   );
 
   return (
-    <section id="team" ref={ref} className="lokta-texture" style={{ padding: '4.5rem 0 5rem' }}>
+    <section id="team" ref={ref} className="lokta-texture" style={{ padding: membersList.length > 5 ? '0' : '4.5rem 0 5rem' }}>
       {membersList.length > 5 ? (
         <HorizontalScrollCarousel 
           items={membersList} 
@@ -248,8 +248,8 @@ export default function TeamSection({ content = {}, isLoading = false }) {
             onClick={handleAdd}
             style={{
               background: '#FFFFFF',
-              border: '2px dashed #79213C',
-              color: '#79213C',
+              border: '2px dashed #9E1F42',
+              color: '#9E1F42',
               padding: '12px 28px',
               borderRadius: '50px',
               cursor: 'pointer',
@@ -262,12 +262,12 @@ export default function TeamSection({ content = {}, isLoading = false }) {
               gap: 8
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.background = '#79213C';
+              e.currentTarget.style.background = '#9E1F42';
               e.currentTarget.style.color = '#FFFFFF';
             }}
             onMouseLeave={e => {
               e.currentTarget.style.background = '#FFFFFF';
-              e.currentTarget.style.color = '#79213C';
+              e.currentTarget.style.color = '#9E1F42';
             }}
           >
             <i className="fa-solid fa-user-plus"></i>
@@ -275,7 +275,7 @@ export default function TeamSection({ content = {}, isLoading = false }) {
           </button>
         </div>
       )}
-      <SandyDivider bottomColor="#F8F5EE" />
+      <SandyDivider bottomColor="#FBF5E9" />
     </section>
   );
 }

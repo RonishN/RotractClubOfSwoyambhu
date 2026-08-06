@@ -86,7 +86,7 @@ export default function AdminEdit() {
           <TeamSection  content={content || {}} />
           <InitiativesSection content={content || {}} />
           <EventsSection      content={content || {}} />
-          <ContactSection />
+          <ContactSection content={content || {}} />
         </main>
         <Footer />
       </div>

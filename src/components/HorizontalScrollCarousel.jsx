@@ -1,14 +1,16 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { motion, useMotionValue, useSpring, useTransform, animate } from 'framer-motion';
+import React, { useRef, useState, useEffect } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
 
 export default function HorizontalScrollCarousel({ items, renderItem, chunkSize = 8, header }) {
   const containerRef = useRef(null);
-  const stickyRef = useRef(null);
+  const pinnedRef = useRef(null);
   const trackRef = useRef(null);
   const touchTrackRef = useRef(null);
 
   const [maxScroll, setMaxScroll] = useState(0);
-  const [innerHeight, setInnerHeight] = useState(0);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const [activeMobileIndex, setActiveMobileIndex] = useState(0);
@@ -23,101 +25,88 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Framer Motion values for desktop smooth scrolling
-  const rawProgress = useMotionValue(0);
-  const smoothProgress = useSpring(rawProgress, {
-    stiffness: 200,
-    damping: 28,
-    mass: 0.4
-  });
-  const xTransform = useTransform(smoothProgress, [0, 1], [0, -maxScroll]);
-
-  // Track progress state
-  useEffect(() => {
-    const unsub = smoothProgress.on('change', v => {
-      setCurrentProgress(v);
-    });
-    return () => unsub();
-  }, [smoothProgress]);
-
   // Desktop rows
   const rows = [];
   for (let i = 0; i < items.length; i += chunkSize) {
     rows.push(items.slice(i, i + chunkSize));
   }
 
-  // Handle Resize recalculation
+  // Measure how far the track overflows the visible content box → horizontal travel distance
   useEffect(() => {
-    const updateDimensions = () => {
-      if (trackRef.current && containerRef.current) {
-        const containerWidth = window.innerWidth;
-        const padding = containerWidth * 0.12;
-        const overflow = trackRef.current.scrollWidth - containerWidth + padding;
-        setMaxScroll(Math.max(0, overflow));
-      }
-      if (stickyRef.current) {
-        setInnerHeight(stickyRef.current.offsetHeight || stickyRef.current.getBoundingClientRect().height || 500);
-      }
+    const measure = () => {
+      if (!trackRef.current || !trackRef.current.parentElement) return;
+      const track = trackRef.current;
+      const wrap = track.parentElement;
+      const cs = getComputedStyle(wrap);
+      const padLeft = parseFloat(cs.paddingLeft) || 0;
+      const padRight = parseFloat(cs.paddingRight) || 0;
+      const contentWidth = wrap.clientWidth - padLeft - padRight;
+      const overflow = track.scrollWidth - contentWidth + 48; // breathing room so the last card is never clipped
+      setMaxScroll(Math.max(0, overflow));
     };
-    
-    // Recalculate on load, resize, and items update
-    const timer = setTimeout(updateDimensions, 200);
-    updateDimensions();
-    
-    // Listen for image loads inside track to recalculate layout dimensions accurately
+
+    // Measure after layout settles, on late loads, images and resize
+    const timer = setTimeout(measure, 300);
+    const timer2 = setTimeout(measure, 900);
+    measure();
+
     const trackEl = trackRef.current;
     const images = trackEl ? trackEl.querySelectorAll('img') : [];
-    images.forEach(img => {
-      img.addEventListener('load', updateDimensions);
-    });
+    images.forEach(img => img.addEventListener('load', measure));
+    window.addEventListener('resize', measure);
+    window.addEventListener('load', measure);
 
-    window.addEventListener('resize', updateDimensions);
     return () => {
       clearTimeout(timer);
-      window.removeEventListener('resize', updateDimensions);
-      images.forEach(img => {
-        img.removeEventListener('load', updateDimensions);
-      });
+      clearTimeout(timer2);
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('load', measure);
+      images.forEach(img => img.removeEventListener('load', measure));
     };
-  }, [items, isMobile]); // Removed innerHeight from dependencies to prevent infinite loop
+  }, [items, isMobile]);
 
-  const speedFactor = 2.0;
-  const scrollDistance = maxScroll > 0 ? (maxScroll / speedFactor) * 1.3 : 0;
-  const scrollHeight = !isMobile && maxScroll > 0 ? `${(innerHeight || 500) + scrollDistance}px` : 'auto';
-
+  // GSAP ScrollTrigger pin — the section takes over the viewport and the page
+  // only continues scrolling vertically AFTER the horizontal travel hits 100%.
   useEffect(() => {
-    if (isMobile) return;
-    const handleScroll = () => {
-      const container = containerRef.current;
-      if (!container || maxScroll <= 0) {
-        rawProgress.set(0);
-        return;
-      }
+    if (isMobile || maxScroll <= 0) return;
+    const track = trackRef.current;
+    const el = pinnedRef.current;
+    if (!track || !el) return;
 
-      const { top } = container.getBoundingClientRect();
-      const stickyTop = 85;
-      
-      let progress = 0;
-      if (scrollDistance > 0) {
-        const rawRatio = (stickyTop - top) / scrollDistance;
-        progress = Math.max(0, Math.min(1, rawRatio / 0.65));
+    const tween = gsap.to(track, {
+      x: () => -maxScroll,
+      ease: 'none',
+      scrollTrigger: {
+        trigger: el,
+        start: 'top top',
+        end: () => `+=${maxScroll}`,
+        scrub: 1,
+        pin: true,
+        anticipatePin: 1,
+        invalidateOnRefresh: true,
+        onUpdate: (self) => setCurrentProgress(self.progress),
+        onRefreshInit: () => setCurrentProgress(0)
       }
-      
-      rawProgress.set(progress);
+    });
+    const st = tween.scrollTrigger;
+
+    const refresh = () => ScrollTrigger.refresh();
+    window.addEventListener('load', refresh);
+
+    return () => {
+      window.removeEventListener('load', refresh);
+      if (st) st.kill();
+      tween.kill();
+      setCurrentProgress(0);
     };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-    
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [items, maxScroll, scrollDistance, rawProgress, isMobile]);
+  }, [isMobile, maxScroll, items]);
 
   // Mobile Touch Swipe Handler
   const handleTouchScroll = () => {
     if (!touchTrackRef.current) return;
     const el = touchTrackRef.current;
     const scrollPosition = el.scrollLeft;
-    const cardWidth = el.offsetWidth * 0.85; // Approx width of card on mobile
+    const cardWidth = el.offsetWidth * 0.85;
     const index = Math.round(scrollPosition / cardWidth);
     setActiveMobileIndex(Math.min(items.length - 1, Math.max(0, index)));
   };
@@ -142,7 +131,7 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
         </div>
 
         {/* Touch Swipe Track */}
-        <div 
+        <div
           ref={touchTrackRef}
           className="mobile-touch-swipe-track"
           onScroll={handleTouchScroll}
@@ -156,7 +145,7 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
 
         {/* Mobile Carousel Indicators & Navigation */}
         <div className="mobile-carousel-controls">
-          <button 
+          <button
             className="mobile-arrow-btn"
             disabled={activeMobileIndex === 0}
             onClick={() => scrollToMobileIndex(activeMobileIndex - 1)}
@@ -164,10 +153,10 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
           >
             ‹
           </button>
-          
+
           <div className="mobile-dots-indicator">
             {items.map((_, idx) => (
-              <span 
+              <span
                 key={idx}
                 className={`mobile-dot ${idx === activeMobileIndex ? 'active' : ''}`}
                 onClick={() => scrollToMobileIndex(idx)}
@@ -175,7 +164,7 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
             ))}
           </div>
 
-          <button 
+          <button
             className="mobile-arrow-btn"
             disabled={activeMobileIndex === items.length - 1}
             onClick={() => scrollToMobileIndex(activeMobileIndex + 1)}
@@ -188,30 +177,16 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
     );
   }
 
-  // DESKTOP HORIZONTAL SCROLL MODE
+  // DESKTOP HORIZONTAL SCROLL TAKE-OVER (GSAP ScrollTrigger pin)
   return (
-    <div ref={containerRef} style={{ height: scrollHeight, position: 'relative' }}>
-      <div 
-        ref={stickyRef}
-        style={{ 
-          position: maxScroll > 0 ? 'sticky' : 'relative', 
-          top: maxScroll > 0 ? '85px' : 0, 
-          height: 'auto', 
-          display: 'flex', 
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          overflow: 'hidden',
+    <div ref={containerRef} style={{ position: 'relative' }}>
+      <div ref={pinnedRef} className="h-scroll-pinned">
+        <div style={{
           width: '100%',
-          paddingBottom: '3.5rem',
-          zIndex: 10
-        }}
-      >
-        <div style={{ 
-          width: '100%', 
-          padding: '0 5%', 
-          marginBottom: '1.2rem', 
-          display: 'flex', 
-          alignItems: 'center', 
+          padding: '0 5%',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
           justifyContent: 'center',
           flexWrap: 'wrap',
           gap: '1.5rem'
@@ -222,38 +197,55 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
         </div>
 
         {maxScroll > 0 && (
-          <div style={{ width: '90%', margin: '0 auto 2.5rem', padding: '0 5%' }}>
+          <div style={{ width: 'min(90%, 720px)', margin: '0 auto 2rem', padding: '0 5%' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              marginBottom: '0.7rem',
+              flexWrap: 'wrap'
+            }}>
+              <span className="carousel-progress-label">
+                <i className="fa-solid fa-arrow-left-long" style={{ fontSize: '0.85rem' }} />
+                <span>Scroll to explore</span>
+                <i className="fa-solid fa-arrow-right-long" style={{ fontSize: '0.85rem' }} />
+              </span>
+              <span className="carousel-progress-count">
+                {String(Math.round(currentProgress * 100)).padStart(2, '0')}%
+              </span>
+            </div>
             <div style={{
               width: '100%',
-              height: '5px',
-              background: 'rgba(28, 43, 76, 0.06)',
-              borderRadius: '10px',
+              height: '7px',
+              background: 'rgba(122, 59, 29, 0.12)',
+              borderRadius: '999px',
               overflow: 'hidden',
               position: 'relative'
             }}>
-              <motion.div 
+              <div
                 style={{
                   width: '100%',
                   height: '100%',
-                  background: 'linear-gradient(90deg, var(--saffron) 0%, var(--gold) 50%, var(--magenta) 100%)',
-                  scaleX: smoothProgress,
+                  background: 'linear-gradient(90deg, #EE7F13 0%, #DFA92E 55%, #B8532A 100%)',
+                  transform: `scaleX(${currentProgress})`,
                   transformOrigin: 'left',
-                  borderRadius: '10px'
+                  borderRadius: '999px',
+                  boxShadow: '0 0 16px rgba(238, 127, 19, 0.6)'
                 }}
               />
             </div>
           </div>
         )}
 
-        <div style={{ width: '100%', overflow: 'hidden', padding: '0 5%' }}>
-          <motion.div 
+        <div style={{ width: '100%', overflow: 'hidden', padding: '0 5%', flex: 1, display: 'flex', alignItems: 'center', minHeight: 0 }}>
+          <div
             ref={trackRef}
             className="carousel-track"
-            style={{ 
-              x: maxScroll > 0 ? xTransform : 0,
+            style={{
               display: 'flex',
               flexDirection: 'column',
-              gap: '2.5rem',
+              gap: '2rem',
               width: 'max-content',
               willChange: 'transform'
             }}
@@ -266,7 +258,7 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
                 })}
               </div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </div>
     </div>

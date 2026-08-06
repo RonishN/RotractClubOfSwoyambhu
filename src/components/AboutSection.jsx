@@ -4,8 +4,10 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import { useLang } from '../context/LanguageContext';
 import { useEditMode } from '../context/EditModeContext';
 import EditableField from './EditableField';
+import EditableImage from './EditableImage';
 import useFadeIn from '../hooks/useFadeIn';
 import TraditionalDivider from './TraditionalDivider';
+import heroImage from '../assets/images/heroimage.jpg';
 
 const VALUES = [
   {
@@ -79,7 +81,7 @@ function AboutSkeleton() {
 
 export default function AboutSection({ content, isLoading }) {
   const { lang } = useLang();
-  const { isEditMode, draft } = useEditMode();
+  const { draft, updateDraftField } = useEditMode();
   const ref = useFadeIn(0.15, [isLoading]);
 
   // Use draft when inside admin provider; fall back to content prop on public page
@@ -87,61 +89,98 @@ export default function AboutSection({ content, isLoading }) {
   const displayContent = hasDraft ? draft : (content || {});
   const aboutEn = displayContent.aboutEn || '';
   const aboutNe = displayContent.aboutNe || '';
+  const aboutImage = displayContent.aboutImage || heroImage;
 
   return (
     <section id="about" className="lokta-texture" ref={ref}>
-      <div className="section-header fade-in">
-        <h2 className="section-title">
-          {lang === 'en' ? 'About the Club' : <span className="devanagari">हाम्रो परिचय</span>}
-        </h2>
-      </div>
+      <div className="about-split">
+        {/* Editorial visual column (sticky on desktop) */}
+        <div className="about-visual fade-in">
+          <div className="about-visual-frame">
+            <EditableImage
+              src={aboutImage}
+              alt=""
+              className="about-visual-img"
+              style={{ borderRadius: '22px' }}
+              onChange={(url) => updateDraftField('aboutImage', url)}
+              cropType="portrait"
+            />
+            <span className="about-visual-ring" aria-hidden="true">
+              <span className="mandala-wheel"><span></span><span></span><span></span></span>
+            </span>
+          </div>
+          <div className="about-visual-caption">
+            <span className="about-visual-caption-title">{lang === 'en' ? 'Swoyambhu' : 'स्वयम्भू'}</span>
+            <span className="about-visual-caption-sub">{lang === 'en' ? 'Stupa & heritage' : 'स्तूप र सम्पदा'}</span>
+          </div>
+        </div>
 
-      {isLoading ? (
-        <AboutSkeleton />
-      ) : (
-        <>
-          {/* About text */}
-          <div className="about-text fade-in delay-1">
-            {lang === 'en'
-              ? (
-                <EditableField field="aboutEn" multiline>
-                  {aboutEn
-                    ? aboutEn.split('\n\n').map((p, i) => <p key={i}>{p}</p>)
-                    : null}
-                </EditableField>
-              )
-              : (
-                <EditableField field="aboutNe" multiline>
-                  {aboutNe
-                    ? aboutNe.split('\n\n').map((p, i) => <p key={i} className="devanagari">{p}</p>)
-                    : null}
-                </EditableField>
-              )
-            }
+        {/* Narrative + values column */}
+        <div className="about-body">
+          <div className="section-header fade-in">
+            <h2 className="section-title">
+              {lang === 'en' ? 'About the Club' : <span className="devanagari">हाम्रो परिचय</span>}
+            </h2>
           </div>
 
-          {/* 3D Lift Value cards */}
-          <div className="values-grid">
-            {VALUES.map((v, i) => (
-              <div
-                key={i}
-                className={`value-card-3d fade-in ${DELAYS[i]}`}
-                aria-label={lang === 'en' ? v.titleEn : v.titleNe}
-              >
-                <div className="value-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <i className={v.iconClass} style={{ fontSize: '1.6rem', color: '#79213C' }}></i>
-                </div>
-                <h4 className="value-title">
-                  {lang === 'en' ? v.titleEn : <span className="devanagari">{v.titleNe}</span>}
-                </h4>
-                <p className="value-desc">
-                  {lang === 'en' ? v.descEn : <span className="devanagari">{v.descNe}</span>}
-                </p>
+          {isLoading ? (
+            <AboutSkeleton />
+          ) : (
+            <>
+              {/* About text */}
+              <div className="about-text fade-in delay-1">
+                {lang === 'en'
+                  ? (
+                    <EditableField field="aboutEn" multiline>
+                      {aboutEn
+                        ? aboutEn.split('\n\n').map((p, i) => <p key={i}>{p}</p>)
+                        : null}
+                    </EditableField>
+                  )
+                  : (
+                    <EditableField field="aboutNe" multiline>
+                      {aboutNe
+                        ? aboutNe.split('\n\n').map((p, i) => <p key={i} className="devanagari">{p}</p>)
+                        : null}
+                    </EditableField>
+                  )
+                }
               </div>
-            ))}
-          </div>
-        </>
-      )}
+
+              {/* Pull-quote */}
+              <blockquote className="about-quote fade-in delay-2">
+                <span className="about-quote-mark" aria-hidden="true">"</span>
+                <p>
+                  {lang === 'en'
+                    ? 'Service Above Self — inspired by the wisdom eyes of Swoyambhu, we rise with clarity and compassion.'
+                    : 'स्वार्थ भन्दा माथि सेवा — स्वयम्भूका ज्ञान नेत्रबाट प्रेरित, हामी स्पष्टता र करुणाका साथ अगाडि बढ्छौं।'}
+                </p>
+              </blockquote>
+
+              {/* Numbered value list */}
+              <div className="values-grid fade-in delay-1">
+                {VALUES.map((v, i) => (
+                  <div
+                    key={i}
+                    className={`value-card-3d ${DELAYS[i]}`}
+                    aria-label={lang === 'en' ? v.titleEn : v.titleNe}
+                  >
+                    <div className="value-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <i className={v.iconClass} style={{ fontSize: '1.6rem', color: '#B8532A' }}></i>
+                    </div>
+                    <h4 className="value-title">
+                      {lang === 'en' ? v.titleEn : <span className="devanagari">{v.titleNe}</span>}
+                    </h4>
+                    <p className="value-desc">
+                      {lang === 'en' ? v.descEn : <span className="devanagari">{v.descNe}</span>}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </section>
   );
 }

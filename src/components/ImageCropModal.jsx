@@ -277,6 +277,7 @@ export default function ImageCropModal({ imageSrc, cropType, onConfirm, onClose 
               { label: '16:9', val: 16/9 },
               { label: '4:3', val: 4/3 },
               { label: '1:1', val: 1 },
+              { label: '4:5', val: 4/5 },
               { label: '3:4', val: 3/4 },
               { label: '9:16', val: 9/16 }
             ]).map((ratio) => (

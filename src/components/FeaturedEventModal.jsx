@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function FeaturedEventModal({ event }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [visible, setVisible] = useState(false);
   const [animatingOut, setAnimatingOut] = useState(false);
 
@@ -116,9 +117,9 @@ export default function FeaturedEventModal({ event }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
               {event.eventDate && (
                 <span style={{
-                  fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary, #79213C)',
-                  background: 'rgba(121, 33, 60, 0.08)', padding: '5px 12px',
-                  borderRadius: 20, border: '1px solid rgba(121, 33, 60, 0.12)',
+                  fontSize: '0.78rem', fontWeight: 700, color: 'var(--home-maroon, #9E1F42)',
+                  background: 'rgba(242, 140, 31, 0.10)', padding: '5px 12px',
+                  borderRadius: 20, border: '1px solid rgba(242, 140, 31, 0.28)',
                   display: 'inline-flex', alignItems: 'center', gap: 5
                 }}>
                   <i className="fa-regular fa-calendar" /> {event.eventDate}{event.eventTime ? ` • ${event.eventTime}` : ''}
@@ -154,7 +155,7 @@ export default function FeaturedEventModal({ event }) {
             {/* Attendees info if exists */}
             {event.attendees && (
               <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <i className="fa-solid fa-users" style={{ color: 'var(--primary, #79213C)' }} /> <strong>Attendees:</strong> {event.attendees}
+                <i className="fa-solid fa-users" style={{ color: 'var(--home-maroon, #9E1F42)' }} /> <strong>Attendees:</strong> {event.attendees}
               </div>
             )}
 
@@ -167,33 +168,36 @@ export default function FeaturedEventModal({ event }) {
                   rel="noopener noreferrer"
                   style={{
                     width: '100%', textAlign: 'center',
-                    background: '#79213C',
+                    background: '#9E1F42',
                     color: '#ffffff', textDecoration: 'none',
                     padding: '12px 20px', borderRadius: 14,
                     fontWeight: 700, fontSize: '0.92rem',
-                    boxShadow: '0 6px 20px rgba(121, 33, 60, 0.3)',
+                    boxShadow: '0 6px 20px rgba(158, 31, 66, 0.35)',
                     transition: 'all 0.2s ease',
                     display: 'block', boxSizing: 'border-box'
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 25px rgba(121, 33, 60, 0.4)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(121, 33, 60, 0.3)'; }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 25px rgba(158, 31, 66, 0.45)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(158, 31, 66, 0.35)'; }}
                 >
                   Register Now →
                 </a>
               ) : (
                 <button
-                  onClick={handleClose}
+                  onClick={() => {
+                    navigate(`/events?event=${event.id}`);
+                    handleClose();
+                  }}
                   style={{
                     width: '100%',
-                    background: 'linear-gradient(135deg, var(--primary, #79213C), #561427)',
+                    background: 'linear-gradient(135deg, var(--home-maroon, #9E1F42), #6E1030)',
                     color: '#ffffff', border: 'none', cursor: 'pointer',
                     padding: '12px 20px', borderRadius: 14,
                     fontWeight: 700, fontSize: '0.92rem',
-                    boxShadow: '0 6px 20px rgba(121, 33, 60, 0.3)',
+                    boxShadow: '0 6px 20px rgba(158, 31, 66, 0.35)',
                     transition: 'all 0.2s ease'
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 25px rgba(121, 33, 60, 0.4)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(121, 33, 60, 0.3)'; }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 25px rgba(158, 31, 66, 0.45)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(158, 31, 66, 0.35)'; }}
                 >
                   View Event Details
                 </button>

@@ -66,7 +66,7 @@ export default function EventsSection() {
             ))}
           </div>
         ) : events.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#64748b', padding: '2rem 0' }}>
+          <div style={{ textAlign: 'center', color: '#8A6A52', padding: '2rem 0' }}>
             {lang === 'en' ? 'No events scheduled.' : 'कुनै कार्यक्रमहरू तय गरिएको छैन।'}
           </div>
         ) : (
@@ -91,7 +91,7 @@ export default function EventsSection() {
                       href={ev.registrationLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ fontSize: '0.82rem', color: '#79213C', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      style={{ fontSize: '0.82rem', color: '#B8532A', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
                     >
                       <i className="fa-solid fa-pen-to-square"></i>
                       <span>Register Now</span>
@@ -113,25 +113,25 @@ export default function EventsSection() {
             display: 'inline-flex',
             alignItems: 'center',
             gap: '8px',
-            background: '#79213C',
-            color: '#ffffff',
+            background: 'linear-gradient(135deg, #F28C1F, #E8B43A)',
+            color: '#3D0C1B',
             padding: '12px 28px',
             borderRadius: '25px',
-            fontWeight: 700,
+            fontWeight: 800,
             fontSize: '0.95rem',
             textDecoration: 'none',
-            boxShadow: '0 4px 14px rgba(121, 33, 60, 0.3)',
+            boxShadow: '0 8px 22px rgba(61, 12, 27, 0.25)',
             transition: 'all 0.2s ease'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = '#561427';
+            e.currentTarget.style.background = 'linear-gradient(135deg, #D9750F, #F28C1F)';
             e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.boxShadow = '0 8px 20px rgba(121, 33, 60, 0.45)';
+            e.currentTarget.style.boxShadow = '0 12px 28px rgba(61, 12, 27, 0.35)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = '#79213C';
+            e.currentTarget.style.background = 'linear-gradient(135deg, #F28C1F, #E8B43A)';
             e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 4px 14px rgba(121, 33, 60, 0.3)';
+            e.currentTarget.style.boxShadow = '0 8px 22px rgba(61, 12, 27, 0.25)';
           }}
         >
           <span>{lang === 'en' ? 'View All Events' : 'सबै कार्यक्रमहरू हेर्नुहोस्'}</span>
@@ -139,7 +139,7 @@ export default function EventsSection() {
         </Link>
       </div>
 
-      <SandyDivider bottomColor="#FCFBF7" />
+      <SandyDivider bottomColor="#F5ECDA" />
     </section>
   );
 }

@@ -43,7 +43,14 @@ const DOC_ID = 'website-content';
 const websiteDefaults = {
   heroEn: 'Rotaract Club\nof Swoyambhu',
   heroNe: 'स्वयम्भू\nरोटर्याक्ट क्लब',
+  heroStats: [
+    { value: '25+', labelEn: 'Years of Service', labelNe: 'सेवाका वर्ष' },
+    { value: '150+', labelEn: 'Active Members', labelNe: 'सक्रिय सदस्य' },
+    { value: '40+', labelEn: 'Projects / Year', labelNe: 'वार्षिक परियोजना' },
+  ],
   aboutEn: 'Rotaract is a global movement of young leaders who are developing innovative solutions to the world\'s most pressing challenges. We bring together adults ages 18–30 to take action in their communities, develop their leadership and professional skills, and have fun.\n\nThe Rotaract Club of Swoyambhu is deeply rooted in the spiritual and cultural heart of Kathmandu. Inspired by the wisdom eyes of Swoyambhu, we aim to serve with clarity, compassion, and a profound respect for our heritage.',
+  aboutImage: '',
+  contactImage: '',
   aboutNe: 'रोटर्याक्ट युवा नेताहरूको एक विश्वव्यापी आन्दोलन हो जो संसारका सबैभन्दा ठूला चुनौतीहरूको लागि अभिनव समाधानहरू विकास गर्दैछ। हामी समुदायमा कार्य गर्न, नेतृत्व र व्यावसायिक सीपहरू विकास गर्न १८–३० वर्षका युवाहरूलाई एकसाथ ल्याउँछौं।\n\nस्वयम्भू रोटर्याक्ट क्लब काठमाडौंको आध्यात्मिक र सांस्कृतिक केन्द्रमा गहिरो जरा गाडेको छ। स्वयम्भूका ज्ञान नेत्रहरूबाट प्रेरित भएर, हामी स्पष्टता, करुणा र हाम्रो सम्पदाप्रति गहिरो सम्मानका साथ सेवा गर्ने लक्ष्य राख्छौं।',
   team: [
     { id: '1', name: 'Rtr. Subina Magar', roleEn: 'President', roleNe: 'अध्यक्ष', imgUrl: '/src/assets/images/president.jpg' },
@@ -175,6 +182,8 @@ function normalizeWebsiteData(data) {
     heroNe: data.heroNe ?? data.heroTitleNe ?? '',
     aboutEn: data.aboutEn ?? '',
     aboutNe: data.aboutNe ?? '',
+    aboutImage: data.aboutImage ?? '',
+    contactImage: data.contactImage ?? '',
     eventsList: Array.isArray(data.eventsList) ? data.eventsList : [],
     albums: Array.isArray(data.albums) ? data.albums : [],
     highlights: Array.isArray(data.highlights) ? data.highlights : [],
@@ -338,8 +347,35 @@ function validateWebsitePayload(data) {
     }
   }
 
+  // ── Image URL / data-URL checks ───────────────────────────────────────────
+  const imageChecks = [
+    ['aboutImage', 5000],
+    ['contactImage', 5000],
+  ];
+
+  for (const [key, maxLen] of imageChecks) {
+    if (data[key] == null) continue;
+    if (typeof data[key] !== 'string') {
+      return `Invalid field: ${key}`;
+    }
+    if (data[key].length > maxLen) {
+      return `${key} exceeds max length (${maxLen})`;
+    }
+  }
+
   // ── Array field checks ─────────────────────────────────────────────────────
   const MAX_ITEMS = 20;
+
+  if (data.heroStats != null) {
+    if (!Array.isArray(data.heroStats)) return 'heroStats must be an array';
+    if (data.heroStats.length > 12) return 'heroStats exceeds max items (12)';
+    for (const [i, s] of data.heroStats.entries()) {
+      if (!s || typeof s !== 'object') return `heroStats[${i}] is invalid`;
+      if (s.value != null && (typeof s.value !== 'string' || s.value.length > 40)) return `heroStats[${i}].value is invalid`;
+      if (s.labelEn != null && (typeof s.labelEn !== 'string' || s.labelEn.length > 100)) return `heroStats[${i}].labelEn is invalid`;
+      if (s.labelNe != null && (typeof s.labelNe !== 'string' || s.labelNe.length > 100)) return `heroStats[${i}].labelNe is invalid`;
+    }
+  }
 
   if (data.team != null) {
     if (!Array.isArray(data.team)) return 'team must be an array';

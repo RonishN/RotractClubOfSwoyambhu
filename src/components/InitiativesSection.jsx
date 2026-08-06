@@ -114,12 +114,16 @@ export default function InitiativesSection({ content = {}, isLoading = false }) 
             {init.desc}
           </EditableField>
         </p>
+        <span className="init-link">
+          <span className="init-link-label">{lang === 'en' ? 'Discover' : 'हेर्नुहोस्'}</span>
+          <i className="fa-solid fa-arrow-right-long" />
+        </span>
       </div>
     </BlockControls>
   );
 
   return (
-    <section id="initiatives" ref={ref} className="lokta-texture" style={{ padding: '4rem 0' }}>
+    <section id="initiatives" ref={ref} className="lokta-texture" style={{ padding: initiativesList.length > 3 ? '0' : '4rem 0' }}>
       {initiativesList.length > 3 ? (
         <HorizontalScrollCarousel 
           items={initiativesList} 
@@ -162,7 +166,7 @@ export default function InitiativesSection({ content = {}, isLoading = false }) 
           </button>
         </div>
       )}
-      <SandyDivider bottomColor="#FAF7F0" />
+      <SandyDivider bottomColor="#F5ECDA" />
     </section>
   );
 }
