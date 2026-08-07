@@ -171,20 +171,24 @@ export default function EventsPage() {
     return date.toLocaleString('en-US', { month: 'short' }).toUpperCase();
   };
 
-  const filteredEvents = events.filter((ev) => {
-    if (selectedCategory === 'UPCOMING' && ev.eventDate < todayStr) return false;
-    if (selectedCategory === 'COMPLETED' && ev.eventDate >= todayStr) return false;
+  const filteredEvents = events
+    .filter((ev) => {
+      if (selectedCategory === 'UPCOMING' && ev.eventDate < todayStr) return false;
+      if (selectedCategory === 'COMPLETED' && ev.eventDate >= todayStr) return false;
 
-    if (searchTerm.trim()) {
-      const q = searchTerm.toLowerCase();
-      const titleMatch = ev.title?.toLowerCase().includes(q);
-      const descMatch = ev.description?.toLowerCase().includes(q);
-      const venueMatch = ev.venue?.toLowerCase().includes(q);
-      if (!titleMatch && !descMatch && !venueMatch) return false;
-    }
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase();
+        const titleMatch = ev.title?.toLowerCase().includes(q);
+        const descMatch = ev.description?.toLowerCase().includes(q);
+        const venueMatch = ev.venue?.toLowerCase().includes(q);
+        if (!titleMatch && !descMatch && !venueMatch) return false;
+      }
 
-    return true;
-  });
+      return true;
+    })
+    // Nearest event first (ascending date) so the list always leads with
+    // what is coming up soonest.
+    .sort((a, b) => (a.eventDate || '').localeCompare(b.eventDate || ''));
 
   // Next upcoming event spotlight — prefer the admin-starred priority event
   const upcoming = events
