@@ -1285,17 +1285,20 @@ app.get('/api/health', (_req, res) => {
 // Helpers to serve cacheable public JSON.
 // Browsers revalidate every time via ETag (cheap 304) so the admin always sees
 // fresh content after a save; shared/CDN caches (e.g. Cloudflare free edge)
-// hold the payload for 60 s via s-maxage, so public visitors are served from
-// the nearest edge (fast) yet see admin updates within ~1 minute.
+// hold the payload for `edgeMaxAge` seconds via s-maxage, so public visitors
+// are served from the nearest edge (fast) yet see admin updates quickly.
+// NOTE: stale-while-revalidate is deliberately NOT used here — it lets an edge
+// serve an old body for a second full window after a save, which is exactly
+// what caused the "featured event still shows the old one" bug.
 function etagOf(value) {
   return `"${crypto.createHash('sha256').update(value).digest('hex').slice(0, 32)}"`;
 }
 
-function sendPublicJson(req, res, data) {
+function sendPublicJson(req, res, data, { edgeMaxAge = 60 } = {}) {
   const body = JSON.stringify(data);
   const etag = etagOf(body);
   res.setHeader('ETag', etag);
-  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=60, max-age=0, must-revalidate');
+  res.setHeader('Cache-Control', `public, s-maxage=${edgeMaxAge}, max-age=0, must-revalidate`);
   if (req.headers['if-none-match'] === etag) {
     res.status(304).end();
     return;
@@ -2179,7 +2182,8 @@ app.get('/api/events', async (req, res) => {
     const allEvents = Array.isArray(store.websiteData?.eventsList) ? store.websiteData.eventsList : [];
     // Public only gets published events
     const published = sanitizeEventsList(allEvents.filter(e => e.status !== 'Draft'));
-    sendPublicJson(req, res, published);
+    // No edge caching for events — admin edits must propagate immediately.
+    sendPublicJson(req, res, published, { edgeMaxAge: 0 });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch events' });
   }

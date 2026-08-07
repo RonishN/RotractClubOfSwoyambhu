@@ -53,15 +53,13 @@ export default defineConfig({
             },
           },
           {
+            // Events are admin-edited frequently and must never show stale data.
+            // NetworkOnly: always hit the API (the server's no-cache policy for
+            // /api/events makes this safe). No offline fallback to a 7-day-old
+            // featured event.
             urlPattern: /\/api\/events$/,
-            handler: 'NetworkFirst',
+            handler: 'NetworkOnly',
             method: 'GET',
-            options: {
-              cacheName: 'events',
-              networkTimeoutSeconds: 3,
-              cacheableResponse: { statuses: [0, 200] },
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 7 },
-            },
           },
           {
             urlPattern: /^https:\/\/ik\.imagekit\.io\/.*/,
