@@ -33,12 +33,18 @@ export default function ImageCropModal({ imageSrc, cropType, fixedRatio, onConfi
     setZoom(1);
     setPan({ x: 0, y: 0 });
     setImageLoaded(false);
+    if (imgRef.current && imgRef.current.naturalWidth) {
+      calculateLayout(imgRef.current, viewportWidth, viewportHeight);
+      setImageLoaded(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageSrc]);
 
   useEffect(() => {
     setZoom(1);
-    if (imgRef.current && imageLoaded) {
+    if (imgRef.current && imgRef.current.naturalWidth) {
       calculateLayout(imgRef.current, viewportWidth, viewportHeight);
+      setImageLoaded(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRatio]);
