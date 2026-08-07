@@ -1052,6 +1052,11 @@ header.scrolled .lang-opt.active { color: #3D0C1B; background: linear-gradient(1
   background:linear-gradient(115deg,#4F1222 0%,#7A1F34 60%,#8E2A45 100%);
   border-left:1px solid rgba(223,169,46,.35);
 }
+/* The 4:3 card's media column is ~1.19:1 at desktop, so object-fit:cover
+   crops the left/right edges of a true 4:3 image. Match the box to 4:3 so
+   the full image shows without zooming/cropping. */
+.home-page .home-events .spotlight-43 .spotlight-inner{min-height:0;align-items:center}
+.home-page .home-events .spotlight-43 .spotlight-media{aspect-ratio:4/3;min-height:0}
 
 
 /* ── EVENTS → CONTACT wave divider: full-bleed + flush with the band ─
