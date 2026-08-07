@@ -8,15 +8,9 @@ import heroImage from '../assets/images/heroimage.jpg';
 
 const PRAYER_FLAGS = ['pf-blue', 'pf-white', 'pf-red', 'pf-green', 'pf-yellow'];
 
-const DEFAULT_STATS = [
-  { value: '25+', labelEn: 'Years of Service', labelNe: 'सेवाका वर्ष' },
-  { value: '150+', labelEn: 'Active Members', labelNe: 'सक्रिय सदस्य' },
-  { value: '40+', labelEn: 'Projects / Year', labelNe: 'वार्षिक परियोजना' },
-];
-
 export default function HeroSection({ content, isLoading }) {
   const { lang } = useLang();
-  const { draft, updateDraftArray } = useEditMode();
+  const { draft } = useEditMode();
   const sectionRef = useRef(null);
   const bgWrapRef = useRef(null);
   const contentRef = useRef(null);
@@ -27,15 +21,6 @@ export default function HeroSection({ content, isLoading }) {
   const displayContent = hasDraft ? draft : (content || {});
   const heroEn = displayContent.heroEn || '';
   const heroNe = displayContent.heroNe || '';
-  const heroStats = Array.isArray(displayContent.heroStats) && displayContent.heroStats.length
-    ? displayContent.heroStats
-    : DEFAULT_STATS;
-
-  const updateStat = (index, field, value) => {
-    const list = heroStats.map((s) => ({ ...s }));
-    list[index] = { ...list[index], [field]: value };
-    updateDraftArray('heroStats', list);
-  };
 
   // Cinematic parallax-out: as the user scrolls away, the hero background
   // drifts slower (parallax + gentle zoom) and the content fades & slides up.
@@ -78,11 +63,6 @@ export default function HeroSection({ content, isLoading }) {
       </div>
       <div className="home-hero-overlay" />
 
-      {/* Rotating mandala wheel ornament */}
-      <span className="home-hero-mandala" aria-hidden="true">
-        <span className="mandala-wheel"><span></span><span></span><span></span></span>
-      </span>
-
       {/* Center-balanced cinematic content */}
       <div className="home-hero-inner" ref={contentRef}>
         <span className="home-hero-kicker">
@@ -93,10 +73,12 @@ export default function HeroSection({ content, isLoading }) {
 
         {isLoading ? (
           <SkeletonTheme baseColor="rgba(255,255,255,0.15)" highlightColor="rgba(255,255,255,0.3)">
-            <div style={{ marginBottom: '0.5rem' }}>
-              <Skeleton height={72} width={520} borderRadius={8} />
+            <div className="home-hero-sk-title">
+              <Skeleton height={72} width="100%" borderRadius={8} />
             </div>
-            <Skeleton height={72} width={380} borderRadius={8} />
+            <div className="home-hero-sk-title home-hero-sk-title-sm">
+              <Skeleton height={72} width="100%" borderRadius={8} />
+            </div>
           </SkeletonTheme>
         ) : lang === 'en' ? (
           <EditableField field="heroEn" style={{ display: 'inline-block' }}>
@@ -130,33 +112,6 @@ export default function HeroSection({ content, isLoading }) {
             <span>{lang === 'en' ? 'Our Initiatives' : 'हाम्रा पहलहरू'}</span>
             <i className="fa-solid fa-compass" />
           </a>
-        </div>
-
-        <div className="home-hero-stats">
-          {heroStats.map((s, i) => (
-            <React.Fragment key={i}>
-              {i > 0 && <div className="home-hero-stat-divider" />}
-              <div className="home-hero-stat">
-                <span className="home-hero-stat-num">
-                  <EditableField field="heroStats" value={s.value} onChange={(v) => updateStat(i, 'value', v)} style={{ display: 'inline-block' }}>
-                    {s.value}
-                  </EditableField>
-                </span>
-                <span className="home-hero-stat-label">
-                  <EditableField
-                    field="heroStats"
-                    value={s.labelEn}
-                    onChange={(v) => updateStat(i, 'labelEn', v)}
-                    neValue={s.labelNe}
-                    onChangeNe={(v) => updateStat(i, 'labelNe', v)}
-                    style={{ display: 'inline-block' }}
-                  >
-                    {lang === 'en' ? s.labelEn : s.labelNe}
-                  </EditableField>
-                </span>
-              </div>
-            </React.Fragment>
-          ))}
         </div>
       </div>
 

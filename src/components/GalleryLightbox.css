@@ -1,0 +1,19 @@
+/* ── GalleryLightbox responsive polish ── */
+@media (max-width: 720px){
+  .lightbox-topbar{padding:12px 14px !important;gap:8px !important}
+  .lightbox-topbar .lightbox-action{display:none}
+  .lightbox-nav{width:40px !important;height:40px !important;font-size:1rem !important}
+  .lightbox-nav.prev{left:8px !important}
+  .lightbox-nav.next{right:8px !important}
+  .lightbox-stage{padding:8px 8px !important}
+  .lightbox-bottom{padding:8px 10px 12px !important;gap:8px !important}
+  .lightbox-thumbs img{width:46px !important;height:46px !important}
+}
+@media (max-width: 480px){
+  .lightbox-topbar{align-items:flex-start !important;flex-direction:column}
+  .lightbox-topbar>div{flex-wrap:nowrap}
+  .lightbox-nav{width:36px !important;height:36px !important}
+  .lightbox-nav.prev{left:6px !important}
+  .lightbox-nav.next{right:6px !important}
+  .lightbox-bottom .lightbox-thumbs{max-height:56px}
+}

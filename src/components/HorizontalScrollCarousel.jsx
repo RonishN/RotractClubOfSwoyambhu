@@ -44,13 +44,19 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
     rows.push(items.slice(i, i + chunkSize));
   }
 
-  // Measure how far the track overflows the visible content box → horizontal travel distance
+  // Measure how far the track overflows the visible content box → horizontal travel distance.
+  // Re-measure only when the layout can actually change (fonts, images, resize, wrap size),
+  // and let ScrollTrigger.refresh() re-anchor the pin afterwards so the section never
+  // starts scrubbing against a stale measurement.
   useEffect(() => {
     let lastScroll = -1;
-    const measure = () => {
-      if (!trackRef.current || !trackRef.current.parentElement) return;
+    let rafId = 0;
+    let debounceTimer = 0;
+
+    const apply = () => {
       const track = trackRef.current;
-      const wrap = track.parentElement;
+      const wrap = track && track.parentElement;
+      if (!track || !wrap) return;
       const cs = getComputedStyle(wrap);
       const padLeft = parseFloat(cs.paddingLeft) || 0;
       const padRight = parseFloat(cs.paddingRight) || 0;
@@ -63,21 +69,47 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
       }
     };
 
-    // Measure after layout settles, on late loads, images and resize
-    const timer = setTimeout(measure, 300);
-    const timer2 = setTimeout(measure, 900);
+    // Double rAF so we measure after the browser has re-laid-out (fonts/images settle).
+    const measure = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => requestAnimationFrame(apply));
+    };
+
+    const onResize = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(measure, 120);
+    };
+
     measure();
 
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        measure();
+        ScrollTrigger.refresh();
+      });
+    }
+
     const trackEl = trackRef.current;
+    const wrap = trackEl ? trackEl.parentElement : null;
+
+    let ro;
+    if (trackEl && wrap && typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => measure());
+      ro.observe(wrap);
+      ro.observe(trackEl);
+    }
+
     const images = trackEl ? trackEl.querySelectorAll('img') : [];
     images.forEach(img => img.addEventListener('load', measure));
-    window.addEventListener('resize', measure);
+
+    window.addEventListener('resize', onResize);
     window.addEventListener('load', measure);
 
     return () => {
-      clearTimeout(timer);
-      clearTimeout(timer2);
-      window.removeEventListener('resize', measure);
+      cancelAnimationFrame(rafId);
+      clearTimeout(debounceTimer);
+      if (ro) ro.disconnect();
+      window.removeEventListener('resize', onResize);
       window.removeEventListener('load', measure);
       images.forEach(img => img.removeEventListener('load', measure));
     };
@@ -98,7 +130,7 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
         trigger: el,
         start: 'top top',
         end: () => `+=${maxScroll}`,
-        scrub: 1.4,
+        scrub: 1,
         pin: true,
         anticipatePin: 1,
         invalidateOnRefresh: true,
@@ -233,25 +265,10 @@ export default function HorizontalScrollCarousel({ items, renderItem, chunkSize 
               </span>
               <span ref={progressLabelRef} className="carousel-progress-count">00%</span>
             </div>
-            <div style={{
-              width: '100%',
-              height: '7px',
-              background: 'rgba(122, 59, 29, 0.12)',
-              borderRadius: '999px',
-              overflow: 'hidden',
-              position: 'relative'
-            }}>
+            <div className="carousel-progress-track">
               <div
                 ref={progressBarRef}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  background: 'linear-gradient(90deg, #EE7F13 0%, #DFA92E 55%, #B8532A 100%)',
-                  transform: 'scaleX(0)',
-                  transformOrigin: 'left',
-                  borderRadius: '999px',
-                  boxShadow: '0 0 16px rgba(238, 127, 19, 0.6)'
-                }}
+                className="carousel-progress-fill"
               />
             </div>
           </div>

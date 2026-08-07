@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLang } from '../context/LanguageContext';
 import Header from '../components/Header';
@@ -28,7 +28,7 @@ export default function GalleryAlbumPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const sentinelRef = useRef(null);
+  const [showBack, setShowBack] = useState(false);
 
   const ref = useFadeIn(0.15, [isLoading]);
 
@@ -48,6 +48,7 @@ export default function GalleryAlbumPage() {
 
   useEffect(() => {
     const onScroll = () => {
+      setShowBack(window.scrollY > 320);
       const doc = document.documentElement;
       const max = doc.scrollHeight - window.innerHeight;
       setScrollProgress(max > 0 ? (window.scrollY / max) * 100 : 0);
@@ -79,19 +80,7 @@ export default function GalleryAlbumPage() {
     return () => clearInterval(interval);
   }, [slideshowImages.length]);
 
-  // Infinite scroll
-  useEffect(() => {
-    if (isLoading) return;
-    const el = sentinelRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      entries => { if (entries[0].isIntersecting) setVisibleCount(v => v + PAGE_SIZE); },
-      { rootMargin: '500px' }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [isLoading, photos.length, visibleCount]);
-
+  // Infinite scroll (legacy behavior) replaced by explicit "Load More" button
   const visiblePhotos = photos.slice(0, visibleCount);
   const hasMore = visibleCount < photos.length;
 
@@ -99,217 +88,99 @@ export default function GalleryAlbumPage() {
     <>
       <Header />
       <div className="scroll-progress" style={{ width: `${scrollProgress}%` }} />
+
+      {/* Sticky back bar (mobile, appears after scrolling) */}
+      {showBack && (
+        <div className="gallery-sticky-back">
+          <button type="button" className="gallery-sticky-back-btn" onClick={() => navigate('/gallery')}>
+            <i className="fa-solid fa-arrow-left" />
+            {lang === 'en' ? 'All Albums' : 'सबै एल्बमहरू'}
+          </button>
+        </div>
+      )}
       <main ref={ref} style={{ minHeight: '80vh', paddingBottom: '4rem' }} className="gallery-page">
 
-        {/* ── Cinematic Slideshow Banner ── */}
-        <section style={{
-          position: 'relative',
-          minHeight: '460px',
-          overflow: 'hidden',
-          background: '#100306',
-        }}>
-          {/* Slideshow layers */}
+        {/* ── Full-bleed banner slideshow (cover — works for any orientation) ── */}
+        <section className="album-hero">
           {!isLoading && slideshowImages.length > 0 && slideshowImages.map((imgUrl, index) => (
             <div
               key={imgUrl}
-              style={{
-                position: 'absolute',
-                inset: 0,
-                backgroundImage: `url(${imgUrl})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                opacity: index === currentSlideIndex ? 1 : 0,
-                transition: 'opacity 1.8s ease-in-out',
-                animation: index === currentSlideIndex ? 'kenBurnsAnimation 22s ease-in-out infinite' : 'none',
-                zIndex: index === currentSlideIndex ? 1 : 0,
-              }}
+              className={`album-slide-bg ${index === currentSlideIndex ? 'active' : ''}`}
+              style={{ backgroundImage: `url(${imgUrl})` }}
             />
           ))}
+          <div className="album-hero-overlay" />
 
-          {/* Gradient overlay: dark on bottom and left for text readability */}
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            background: `
-              linear-gradient(to top, rgba(10,2,5,0.97) 0%, rgba(10,2,5,0.6) 40%, rgba(10,2,5,0.15) 100%),
-              linear-gradient(to right, rgba(10,2,5,0.82) 0%, rgba(10,2,5,0.35) 50%, rgba(10,2,5,0) 100%)
-            `,
-            zIndex: 2,
-          }} />
+          {/* Back button — top left */}
+          <div className="album-hero-back">
+            <button type="button" onClick={() => navigate('/gallery')}>
+              <i className="fa-solid fa-arrow-left" />
+              {lang === 'en' ? 'All Albums' : 'सबै एल्बमहरू'}
+            </button>
+          </div>
 
-          {/* Slideshow dots indicator */}
+          {/* Overlaid album info */}
+          <div className="album-hero-inner">
+            {isLoading ? (
+              <div className="album-hero-info" aria-busy="true">
+                <div className="album-hero-sk-line" style={{ width: 130, marginBottom: 16 }} />
+                <div className="album-hero-sk-line" style={{ width: '62%', height: 30, marginBottom: 14 }} />
+                <div className="album-hero-sk-line" style={{ width: '42%' }} />
+              </div>
+            ) : album ? (
+              <div className="album-hero-info">
+                <span className="album-info-kicker">
+                  <i className="fa-solid fa-images" />
+                  {lang === 'en' ? 'Album' : 'एल्बम'}
+                </span>
+                <h1>{lang === 'en' ? album.titleEn : (album.titleNe || album.titleEn)}</h1>
+                {album.titleNe && lang === 'en' && (
+                  <div className="album-info-subtitle devanagari">{album.titleNe}</div>
+                )}
+                <div className="album-info-meta">
+                  <span className="album-meta-pill">
+                    <i className="fa-solid fa-camera" />
+                    {`${photos.length} ${lang === 'en' ? 'Photos' : 'तस्बिरहरू'}`}
+                  </span>
+                  {linkedEvent && (
+                    <button
+                      type="button"
+                      className="album-meta-pill album-meta-event"
+                      title={linkedEvent.title}
+                      onClick={() => navigate(`/events?event=${encodeURIComponent(linkedEvent.id)}`)}
+                    >
+                      <i className="fa-solid fa-calendar-day" />
+                      {linkedEvent.title}
+                    </button>
+                  )}
+                </div>
+                {(album.description || album.descriptionNe) && (
+                  <p className="album-info-desc">
+                    {lang === 'en' ? album.description || album.descriptionNe : album.descriptionNe || album.description}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="album-hero-empty">
+                <i className="fa-solid fa-folder-open" />
+                <span>{lang === 'en' ? 'This album could not be found.' : 'यो एल्बम फेला पार्न सकिएन।'}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Slideshow dots */}
           {slideshowImages.length > 1 && (
-            <div style={{
-              position: 'absolute',
-              bottom: '1.5rem',
-              right: '2rem',
-              display: 'flex',
-              gap: 6,
-              zIndex: 5,
-            }}>
+            <div className="album-hero-dots">
               {slideshowImages.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setCurrentSlideIndex(i)}
-                  style={{
-                    width: i === currentSlideIndex ? 22 : 7,
-                    height: 7,
-                    borderRadius: 999,
-                    border: 'none',
-                    background: i === currentSlideIndex ? '#F2B73A' : 'rgba(255,255,255,0.35)',
-                    cursor: 'pointer',
-                    transition: 'all 0.35s ease',
-                    padding: 0,
-                  }}
+                  className={`album-hero-dot ${i === currentSlideIndex ? 'active' : ''}`}
                   aria-label={`Go to slide ${i + 1}`}
                 />
               ))}
             </div>
           )}
-
-          {/* ── Back button — top left ── */}
-          <div style={{
-            position: 'absolute',
-            top: '1.5rem',
-            left: '5%',
-            zIndex: 10,
-          }}>
-            <button
-              type="button"
-              onClick={() => navigate('/gallery')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                background: 'rgba(255,255,255,0.12)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255,255,255,0.22)',
-                borderRadius: 999,
-                padding: '8px 18px',
-                color: '#fff',
-                fontWeight: 600,
-                fontSize: '0.82rem',
-                cursor: 'pointer',
-                letterSpacing: '0.02em',
-                transition: 'background 0.2s, border-color 0.2s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(242,183,58,0.22)'; e.currentTarget.style.borderColor = 'rgba(242,183,58,0.5)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.22)'; }}
-            >
-              <i className="fa-solid fa-arrow-left" style={{ fontSize: '0.78rem' }} />
-              {lang === 'en' ? 'All Albums' : 'सबै एल्बमहरू'}
-            </button>
-          </div>
-
-          {/* ── Album title — bottom left ── */}
-          <div style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            zIndex: 4,
-            padding: '2.5rem 5% 2.5rem',
-          }}>
-            <div style={{ maxWidth: 760 }}>
-              {isLoading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div className="sk brand" style={{ height: 10, width: 100, borderRadius: 999 }} />
-                  <div className="sk brand" style={{ height: 36, width: '65%', borderRadius: 8 }} />
-                  <div className="sk brand" style={{ height: 10, width: 160, borderRadius: 999, marginTop: 4 }} />
-                </div>
-              ) : album ? (
-                <>
-                  {/* Kicker */}
-                  <div style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    background: 'rgba(242,183,58,0.18)',
-                    border: '1px solid rgba(242,183,58,0.4)',
-                    borderRadius: 999,
-                    padding: '4px 14px',
-                    marginBottom: '0.8rem',
-                  }}>
-                    <i className="fa-solid fa-images" style={{ color: '#F2B73A', fontSize: '0.7rem' }} />
-                    <span style={{
-                      color: '#F2B73A',
-                      fontWeight: 800,
-                      fontSize: '0.65rem',
-                      letterSpacing: '0.22em',
-                      textTransform: 'uppercase',
-                    }}>
-                      {lang === 'en' ? 'Album' : 'एल्बम'}
-                    </span>
-                  </div>
-
-                  {/* Title */}
-                  <h1 style={{
-                    margin: '0 0 8px',
-                    color: '#FFFFFF',
-                    fontSize: 'clamp(1.9rem, 4.5vw, 3.4rem)',
-                    fontFamily: 'var(--ev-font-display)',
-                    fontWeight: 800,
-                    lineHeight: 1.08,
-                    textShadow: '0 2px 16px rgba(0,0,0,0.9), 0 4px 30px rgba(0,0,0,0.5)',
-                    letterSpacing: '-0.01em',
-                  }}>
-                    {lang === 'en' ? album.titleEn : (album.titleNe || album.titleEn)}
-                  </h1>
-
-                  {/* Nepali subtitle */}
-                  {album.titleNe && lang === 'en' && (
-                    <div style={{
-                      color: 'rgba(255,255,255,0.75)',
-                      fontSize: '1rem',
-                      marginBottom: 10,
-                      textShadow: '0 1px 8px rgba(0,0,0,0.8)',
-                      fontFamily: 'var(--ev-font-display)',
-                    }} className="devanagari">
-                      {album.titleNe}
-                    </div>
-                  )}
-
-                  {/* Meta pills */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 12px', marginTop: 10 }}>
-                    <span style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                      background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)',
-                      border: '1px solid rgba(255,255,255,0.2)', borderRadius: 999,
-                      padding: '5px 14px', fontSize: '0.78rem', fontWeight: 700, color: '#fff',
-                    }}>
-                      <i className="fa-solid fa-images" style={{ color: '#F2B73A' }} />
-                      {`${photos.length} ${lang === 'en' ? 'Photos' : 'तस्बिरहरू'}`}
-                    </span>
-                    {linkedEvent && (
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 6,
-                        background: 'rgba(142,27,60,0.55)', backdropFilter: 'blur(8px)',
-                        border: '1px solid rgba(142,27,60,0.6)', borderRadius: 999,
-                        padding: '5px 14px', fontSize: '0.78rem', fontWeight: 700, color: '#fff',
-                      }}>
-                        <i className="fa-solid fa-calendar-day" style={{ color: '#F2B73A' }} />
-                        {linkedEvent.title}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Description */}
-                  {(album.description || album.descriptionNe) && (
-                    <p style={{
-                      marginTop: 14,
-                      color: 'rgba(255,255,255,0.85)',
-                      fontSize: '0.9rem',
-                      lineHeight: 1.7,
-                      maxWidth: 620,
-                      textShadow: '0 1px 8px rgba(0,0,0,0.85)',
-                    }}>
-                      {lang === 'en' ? album.description || album.descriptionNe : album.descriptionNe || album.description}
-                    </p>
-                  )}
-                </>
-              ) : null}
-            </div>
-          </div>
         </section>
 
         {/* ── Photo Grid ── */}
@@ -384,7 +255,6 @@ export default function GalleryAlbumPage() {
                   <i className="fa-solid fa-camera" />
                   {lang === 'en' ? 'Load More Photos' : 'थप तस्बिरहरू लोड गर्नुहोस्'}
                 </button>
-                <div ref={sentinelRef} className="gallery-load-sentinel" aria-hidden="true" />
               </div>
             )}
           </div>

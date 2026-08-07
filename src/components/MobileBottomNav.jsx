@@ -95,9 +95,6 @@ export default function MobileBottomNav() {
           <button onClick={() => handleSectionScroll('contact')}>
             <span className="menu-icon"><i className="fa-solid fa-phone" style={{ color: '#79213C' }}></i></span> {lang === 'en' ? 'Contact' : 'सम्पर्क'}
           </button>
-          <button onClick={() => handleNav('/admin')}>
-            <span className="menu-icon"><i className="fa-solid fa-gear" style={{ color: '#79213C' }}></i></span> {lang === 'en' ? 'Admin Portal' : 'एडमिन पोर्टल'}
-          </button>
         </div>
       </div>
 

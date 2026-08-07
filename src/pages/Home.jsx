@@ -3,6 +3,7 @@ import Header from '../components/Header';
 import MobileBottomNav from '../components/MobileBottomNav';
 import HeroSection from '../components/HeroSection';
 import AboutSection from '../components/AboutSection';
+import JourneySection from '../components/JourneySection';
 import TeamSection from '../components/TeamSection';
 import InitiativesSection from '../components/InitiativesSection';
 import EventsSection from '../components/EventsSection';
@@ -59,6 +60,7 @@ export default function Home() {
       <main>
         <HeroSection  content={content || {}} isLoading={isLoading} />
         <AboutSection content={content || {}} isLoading={isLoading} />
+        <JourneySection content={content || {}} isLoading={isLoading} />
         <TeamSection  content={content || {}} isLoading={isLoading} />
         <InitiativesSection content={content || {}} isLoading={isLoading} />
         <EventsSection      content={content || {}} />

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang } from '../context/LanguageContext';
+import './GalleryLightbox.css';
 
 export default function GalleryLightbox({
   images = [],
@@ -192,6 +193,7 @@ export default function GalleryLightbox({
     >
       {/* ── Top Bar ── */}
       <div
+        className="lightbox-topbar"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -346,6 +348,7 @@ export default function GalleryLightbox({
           {/* Copy link button */}
           <button
             type="button"
+            className="lightbox-action"
             onClick={handleCopyLink}
             title={copiedLink ? 'Link Copied!' : 'Copy Direct Image Link'}
             style={{
@@ -365,6 +368,7 @@ export default function GalleryLightbox({
           {/* Download button */}
           <button
             type="button"
+            className="lightbox-action"
             onClick={handleDownload}
             title="Download Image"
             style={{
@@ -410,6 +414,7 @@ export default function GalleryLightbox({
 
       {/* ── Main Photo Viewing Area ── */}
       <div
+        className="lightbox-stage"
         style={{
           flex: 1,
           position: 'relative',
@@ -440,6 +445,7 @@ export default function GalleryLightbox({
         {total > 1 && (
           <button
             type="button"
+            className="lightbox-nav prev"
             onClick={(e) => { e.stopPropagation(); goToPrev(); }}
             title="Previous Image (Left Arrow)"
             style={{
@@ -511,6 +517,7 @@ export default function GalleryLightbox({
         {total > 1 && (
           <button
             type="button"
+            className="lightbox-nav next"
             onClick={(e) => { e.stopPropagation(); goToNext(); }}
             title="Next Image (Right Arrow)"
             style={{
@@ -565,6 +572,7 @@ export default function GalleryLightbox({
 
       {/* ── Bottom Section: Captions & Thumbnail Strip ── */}
       <div
+        className="lightbox-bottom"
         style={{
           background: 'linear-gradient(to top, rgba(38,9,20,0.9) 0%, rgba(38,9,20,0.4) 70%, transparent 100%)',
           padding: '12px 20px 18px',
@@ -615,6 +623,7 @@ export default function GalleryLightbox({
         {total > 1 && (
           <div
             ref={thumbnailStripRef}
+            className="lightbox-thumbs"
             style={{
               display: 'flex',
               gap: 8,

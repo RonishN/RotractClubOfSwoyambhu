@@ -2,14 +2,48 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from '../context/LanguageContext';
 import useFadeIn from '../hooks/useFadeIn';
-import SandyDivider from './SandyDivider';
+import WaveDivider from './WaveDivider';
 import { getPublicEvents } from '../api/client';
+
+function EventsSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Loading events" className="events-skeleton">
+      <section className="spotlight spotlight-sk">
+        <div className="spotlight-inner">
+          <div className="spotlight-media">
+            <div className="sk brand" style={{ position: 'absolute', inset: 0 }} />
+          </div>
+          <div className="spotlight-body">
+            <div className="sk brand" style={{ height: 10, width: 130, borderRadius: 999, marginBottom: 18 }} />
+            <div className="sk brand" style={{ height: 30, width: '78%', marginBottom: 16 }} />
+            <div className="sk brand" style={{ height: 14, width: 190, borderRadius: 999, marginBottom: 16 }} />
+            <div className="sk brand" style={{ height: 13, width: '92%', marginBottom: 8 }} />
+            <div className="sk brand" style={{ height: 13, width: '70%', marginBottom: 26 }} />
+            <div className="sk brand" style={{ height: 46, width: 180, borderRadius: 999 }} />
+          </div>
+        </div>
+      </section>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="events-list-row">
+          <div className="sk" style={{ height: 54, width: 64, borderRadius: 12 }} />
+          <div>
+            <div className="sk" style={{ height: 16, width: '52%', borderRadius: 6, marginBottom: 8 }} />
+            <div className="sk" style={{ height: 13, width: '84%', borderRadius: 6 }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function EventsSection() {
   const { lang } = useLang();
-  const ref = useFadeIn();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Re-run the fade observer when loading flips so the spotlight/list that
+  // render AFTER the async fetch get observed (otherwise they stay opacity:0
+  // and leave a big blank gap between the header and the CTA).
+  const ref = useFadeIn(0.15, [loading]);
 
   useEffect(() => {
     getPublicEvents()
@@ -19,94 +53,121 @@ export default function EventsSection() {
         const upcoming = (data || [])
           .filter((e) => e.eventDate >= todayStr)
           .sort((a, b) => a.eventDate.localeCompare(b.eventDate))
-          .slice(0, 3);
+          .slice(0, 4);
         setEvents(upcoming);
       })
       .catch(() => setEvents([]))
       .finally(() => setLoading(false));
   }, []);
 
-  const formatMonth = (dateStr) => {
-    if (!dateStr) return 'JAN';
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
     const date = new Date(dateStr);
-    return date.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
-  const formatDay = (dateStr) => {
-    if (!dateStr) return '01';
-    const parts = dateStr.split('-');
-    return parts[2] || '01';
-  };
+  const featured = events[0];
+  const list = events.slice(1);
 
   return (
-    <section id="events" className="lokta-texture" ref={ref}>
-      <div className="section-header fade-in">
+    <section id="events" className="lokta-texture home-events" ref={ref}>
+      <div className="section-header numbered-head fade-in">
+        <span className="numbered-num">05</span>
+        <span className="numbered-kicker">
+          {lang === 'en' ? 'Mark Your Calendar' : 'मिति टिप्नुहोस्'}
+        </span>
         <h2 className="section-title">
           {lang === 'en' ? 'Upcoming Events' : <span className="devanagari">सूचना तथा कार्यक्रम</span>}
         </h2>
       </div>
 
-      {/* Magazine-style event cards */}
-      <div className="events-magazine fade-in delay-1" style={{ opacity: 1, transform: 'none' }}>
-        {loading ? (
-          <div aria-busy="true" aria-label="Loading events">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="event-magazine-card" style={{ opacity: 1, animation: 'none' }}>
-                <div className="event-card-accent" />
-                <div className="event-card-date-badge">
-                  <div className="sk" style={{ height: 22, width: 40, margin: '0 auto 6px' }} />
-                  <div className="sk" style={{ height: 11, width: 34, margin: '0 auto' }} />
-                </div>
-                <div className="event-card-body">
-                  <div className="sk" style={{ height: 18, width: '62%', marginBottom: 12 }} />
-                  <div className="sk" style={{ height: 13, width: '92%', marginBottom: 8 }} />
-                  <div className="sk" style={{ height: 13, width: '48%' }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : events.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#8A6A52', padding: '2rem 0' }}>
-            {lang === 'en' ? 'No events scheduled.' : 'कुनै कार्यक्रमहरू तय गरिएको छैन।'}
-          </div>
-        ) : (
-          events.map((ev) => (
-            <div key={ev.id} className="event-magazine-card">
-              {/* Colored left accent bar */}
-              <div className="event-card-accent" />
-
-              {/* Date badge */}
-              <div className="event-card-date-badge">
-                <div className="event-card-day">{formatDay(ev.eventDate)}</div>
-                <div className="event-card-month">{formatMonth(ev.eventDate)}</div>
+      {loading ? (
+        <EventsSkeleton />
+      ) : events.length === 0 ? (
+        <div style={{ textAlign: 'center', color: '#8A6A52', padding: '2rem 0' }}>
+          {lang === 'en' ? 'No events scheduled.' : 'कुनै कार्यक्रमहरू तय गरिएको छैन।'}
+        </div>
+      ) : (
+        <div className="home-events-inner">
+          {/* Featured event — spotlight maroon band (image-first) */}
+          <article className="spotlight fade-in delay-1">
+            <div className="spotlight-inner">
+              <div className="spotlight-media">
+                {featured.pictures && featured.pictures.length > 0 ? (
+                  <img src={featured.pictures[0]} alt={featured.title} />
+                ) : (
+                  <div className="spotlight-empty"><i className="fa-solid fa-calendar-star" /></div>
+                )}
+                <span className="spotlight-badge">
+                  <i className="fa-solid fa-star" />
+                  {lang === 'en' ? 'Next Up' : 'अर्को कार्यक्रम'}
+                </span>
               </div>
 
-              {/* Event details */}
-              <div className="event-card-body">
-                <h4 className="event-card-title">{ev.title}</h4>
-                {ev.description && <p className="event-card-desc">{ev.description}</p>}
-                {ev.registrationLink && !ev.registrationClosed && (
-                  <div style={{ marginTop: 10 }}>
-                    <a
-                      href={ev.registrationLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ fontSize: '0.82rem', color: '#B8532A', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                    >
-                      <i className="fa-solid fa-pen-to-square"></i>
-                      <span>Register Now</span>
-                      <i className="fa-solid fa-arrow-right" style={{ fontSize: '0.75rem' }}></i>
+              <div className="spotlight-body">
+                <span className="spotlight-kicker">
+                  {lang === 'en' ? 'Featured Event' : 'विशेष कार्यक्रम'}
+                </span>
+                <h2>{featured.title}</h2>
+
+                <span className="spotlight-date">
+                  <i className="fa-regular fa-calendar" />
+                  {formatDate(featured.eventDate)}{featured.eventTime ? ` @ ${featured.eventTime}` : ''}
+                </span>
+                {featured.venue && (
+                  <span className="spotlight-venue">
+                    <i className="fa-solid fa-location-dot" /> {featured.venue}
+                  </span>
+                )}
+
+                {featured.description && <p>{featured.description}</p>}
+
+                {featured.registrationLink && (
+                  featured.registrationClosed ? (
+                    <span className="register-closed" style={{ marginTop: 22 }}>
+                      <i className="fa-solid fa-lock" /> {lang === 'en' ? 'Registration Closed' : 'दर्ता बन्द भयो'}
+                    </span>
+                  ) : (
+                    <a href={featured.registrationLink} target="_blank" rel="noopener noreferrer" className="spotlight-cta">
+                      <span>{lang === 'en' ? 'Register Now' : 'दर्ता गर्नुहोस्'}</span>
+                      <i className="fa-solid fa-arrow-right" />
                     </a>
-                  </div>
+                  )
                 )}
               </div>
             </div>
-          ))
-        )}
-      </div>
+          </article>
 
-      {/* View All Events Button Redirect */}
-      <div style={{ textAlign: 'center', marginTop: '2.5rem', marginBottom: '1rem' }}>
+          {/* Upcoming list */}
+          {list.length > 0 && (
+            <ul className="events-list fade-in delay-2">
+              {list.map((ev) => (
+                <li key={ev.id} className="events-list-row">
+                  <div className="events-list-date">
+                    <span className="eld-day">{ev.eventDate ? ev.eventDate.split('-')[2] : ''}</span>
+                    <span className="eld-month">{ev.eventDate ? new Date(ev.eventDate).toLocaleString('en-US', { month: 'short' }).toUpperCase() : ''}</span>
+                  </div>
+                  <div className="events-list-info">
+                    <h4>{ev.title}</h4>
+                    {ev.description && <p>{ev.description}</p>}
+                  </div>
+                  <div className="events-list-action">
+                    {ev.registrationLink && !ev.registrationClosed && (
+                      <a href={ev.registrationLink} target="_blank" rel="noopener noreferrer">
+                        {lang === 'en' ? 'Register' : 'दर्ता'}
+                        <i className="fa-solid fa-arrow-right"></i>
+                      </a>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {/* View All Events Button */}
+      <div style={{ textAlign: 'center', marginTop: '2.8rem', marginBottom: '1rem' }}>
         <Link
           to="/events"
           style={{
@@ -139,7 +200,7 @@ export default function EventsSection() {
         </Link>
       </div>
 
-      <SandyDivider bottomColor="#F5ECDA" />
+      <WaveDivider fill="#7A1F34" backFill="#9E2C46" height={72} />
     </section>
   );
 }

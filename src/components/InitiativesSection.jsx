@@ -1,6 +1,4 @@
 import React from 'react';
-import Skeleton from 'react-loading-skeleton';
-import 'react-loading-skeleton/dist/skeleton.css';
 import { useLang } from '../context/LanguageContext';
 import useFadeIn from '../hooks/useFadeIn';
 import { useEditMode } from '../context/EditModeContext';
@@ -12,7 +10,8 @@ import SandyDivider from './SandyDivider';
 
 export default function InitiativesSection({ content = {}, isLoading = false }) {
   const { lang } = useLang();
-  const ref = useFadeIn();
+  // Re-run the fade observer once data loads so post-load .fade-in content is seen.
+  const ref = useFadeIn(0.15, [isLoading]);
   const { isEditMode, draft, updateDraftArray } = useEditMode();
 
   // Use draft when inside admin provider; fall back to content prop on public page
@@ -66,16 +65,20 @@ export default function InitiativesSection({ content = {}, isLoading = false }) 
       <section id="initiatives" className="lokta-texture" style={{ padding: '4rem 0 6.5rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 5%' }}>
           <div className="section-header" style={{ opacity: 1, transform: 'none' }}>
-            <h2 className="section-title"><Skeleton width={250} /></h2>
+            <div className="sk brand" style={{ width: 260, height: '2.2rem', margin: '0 auto' }} />
             <TraditionalDivider style={{ margin: '0.8rem auto 0.5rem' }} />
           </div>
           <div className="initiatives-grid" style={{ marginTop: '2.5rem' }}>
             {[1, 2, 3, 4, 5, 6].map(i => (
               <div key={i} className="init-card">
-                <div className="init-icon"><Skeleton circle width={50} height={50} /></div>
-                <h4 className="init-title"><Skeleton width="60%" /></h4>
-                <p className="init-desc"><Skeleton count={3} /></p>
-                <span className="init-link"><Skeleton width={90} height={14} /></span>
+                <div className="init-icon">
+                  <div className="sk rounded" style={{ width: '100%', height: '100%' }} />
+                </div>
+                <div className="sk brand" style={{ width: '58%', height: 18, margin: '0 auto 0.6rem' }} />
+                <div className="sk" style={{ width: '100%', height: 12, margin: '0 auto 8px' }} />
+                <div className="sk" style={{ width: '92%', height: 12, margin: '0 auto 8px' }} />
+                <div className="sk" style={{ width: '70%', height: 12, margin: '0 auto 12px' }} />
+                <div className="sk" style={{ width: 90, height: 14, margin: '0 auto' }} />
               </div>
             ))}
           </div>
@@ -87,9 +90,13 @@ export default function InitiativesSection({ content = {}, isLoading = false }) 
 
   const renderHeader = (forceVisible = false) => (
     <div 
-      className={`section-header ${forceVisible ? '' : 'fade-in'}`} 
+      className={`section-header numbered-head ${forceVisible ? '' : 'fade-in'}`} 
       style={{ padding: 0, margin: '0 auto 2rem', textAlign: 'center', ...(forceVisible ? { opacity: 1, transform: 'none' } : {}) }}
     >
+      <span className="numbered-num">04</span>
+      <span className="numbered-kicker">
+        {lang === 'en' ? 'Focus Areas' : 'मुख्य क्षेत्रहरू'}
+      </span>
       <h2 className="section-title">
         {lang === 'en' ? 'What We Do' : <span className="devanagari">हाम्रा पहलहरू</span>}
       </h2>

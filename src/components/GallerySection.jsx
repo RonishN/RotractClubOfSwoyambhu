@@ -904,6 +904,7 @@ export default function GallerySection({ content = {}, albumId = null }) {
           borderRadius: 16,
           boxShadow: isEditMode ? '0 4px 20px rgba(121, 33, 60, 0.08)' : 'none',
           border: isEditMode ? '1px solid rgba(121, 33, 60, 0.12)' : 'none',
+          borderTop: isEditMode ? '4px solid #E8871A' : 'none',
         }}
       >
         <div
@@ -951,6 +952,19 @@ export default function GallerySection({ content = {}, albumId = null }) {
                       />
                     )}
                     <div style={{ minWidth: 0 }}>
+                      <span
+                        style={{
+                          letterSpacing: '0.2em',
+                          textTransform: 'uppercase',
+                          color: '#d9750f',
+                          fontSize: '0.68rem',
+                          fontWeight: 800,
+                          display: 'block',
+                          marginBottom: 6,
+                        }}
+                      >
+                        {lang === 'en' ? 'Album Manager' : 'एल्बम व्यवस्थापन'}
+                      </span>
                       <h2
                         className="serif"
                         style={{ margin: 0, textAlign: 'left', fontSize: '1.55rem', color: '#79213C', letterSpacing: '0.3px' }}
@@ -992,6 +1006,19 @@ export default function GallerySection({ content = {}, albumId = null }) {
                 </>
               ) : (
               <>
+                <span
+                  style={{
+                    letterSpacing: '0.2em',
+                    textTransform: 'uppercase',
+                    color: '#d9750f',
+                    fontSize: '0.68rem',
+                    fontWeight: 800,
+                    display: 'block',
+                    marginBottom: 6,
+                  }}
+                >
+                  {lang === 'en' ? 'Gallery Manager' : 'ग्यालरी व्यवस्थापन'}
+                </span>
                 <h2
                   className="serif"
                   style={{ margin: 0, textAlign: 'left', fontSize: '1.55rem', color: '#79213C', letterSpacing: '0.3px' }}

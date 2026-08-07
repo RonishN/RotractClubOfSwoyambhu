@@ -6,7 +6,7 @@ import { useEditMode } from '../context/EditModeContext';
 import EditableField from './EditableField';
 import EditableImage from './EditableImage';
 import useFadeIn from '../hooks/useFadeIn';
-import TraditionalDivider from './TraditionalDivider';
+import ThangkaCorner from './ThangkaCorner';
 import heroImage from '../assets/images/heroimage.jpg';
 
 const VALUES = [
@@ -38,8 +38,14 @@ const VALUES = [
 
 const DELAYS = ['delay-1', 'delay-2', 'delay-3', 'delay-4'];
 
+const DEFAULT_STATS = [
+  { value: '25+', labelEn: 'Years of Service', labelNe: 'सेवाका वर्ष' },
+  { value: '150+', labelEn: 'Active Members', labelNe: 'सक्रिय सदस्य' },
+  { value: '40+', labelEn: 'Projects / Year', labelNe: 'वार्षिक परियोजना' },
+];
+
 // Skeleton placeholder that matches the About narrative column layout
-// (text → 4 value cards in one row → pull-quote)
+// (text → 4 value cards in one row → stats band → pull-quote)
 function AboutSkeleton() {
   return (
     <SkeletonTheme baseColor="#ede8e0" highlightColor="#f7f3ed">
@@ -49,17 +55,27 @@ function AboutSkeleton() {
         <Skeleton width="62%" height={18} borderRadius={6} />
       </div>
 
-      {/* Value cards — same 4-up grid as the real values-grid, icons visible while loading */}
+      {/* Value cards — same 4-up grid as the real values-grid */}
       <div className="values-grid" style={{ pointerEvents: 'none' }}>
         {VALUES.map((v) => (
           <div key={v.iconClass} className="value-card-3d">
             <div className="value-icon">
-              <i className={v.iconClass} style={{ fontSize: '1.6rem', color: '#B8532A' }} />
+              <i className={v.iconClass} style={{ fontSize: '1.5rem', color: '#FFE3B4' }} />
             </div>
             <h4 className="value-title"><Skeleton width="68%" /></h4>
             <p className="value-desc">
-              <Skeleton count={2} height={13} borderRadius={6} style={{ marginBottom: 6 }} />
+              <Skeleton count={2} height={12} borderRadius={6} style={{ marginBottom: 5 }} />
             </p>
+          </div>
+        ))}
+      </div>
+
+      {/* Stats band */}
+      <div className="about-stats" style={{ pointerEvents: 'none' }}>
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="about-stat">
+            <Skeleton width={64} height={28} borderRadius={6} style={{ marginBottom: 6 }} />
+            <Skeleton width={88} height={12} borderRadius={6} />
           </div>
         ))}
       </div>
@@ -67,7 +83,7 @@ function AboutSkeleton() {
       {/* Pull-quote */}
       <blockquote className="about-quote">
         <span className="about-quote-mark" aria-hidden="true">"</span>
-        <p><Skeleton width="78%" height={18} borderRadius={6} /></p>
+        <p><Skeleton width="78%" height={16} borderRadius={6} /></p>
       </blockquote>
     </SkeletonTheme>
   );
@@ -75,7 +91,7 @@ function AboutSkeleton() {
 
 export default function AboutSection({ content, isLoading }) {
   const { lang } = useLang();
-  const { draft, updateDraftField } = useEditMode();
+  const { draft, updateDraftField, updateDraftArray } = useEditMode();
   const ref = useFadeIn(0.15, [isLoading]);
 
   // Use draft when inside admin provider; fall back to content prop on public page
@@ -86,11 +102,34 @@ export default function AboutSection({ content, isLoading }) {
   const aboutImage = displayContent.aboutImage || heroImage;
   const aboutQuoteEn = displayContent.aboutQuoteEn || 'Service Above Self — inspired by the wisdom eyes of Swoyambhu, we rise with clarity and compassion.';
   const aboutQuoteNe = displayContent.aboutQuoteNe || 'स्वार्थ भन्दा माथि सेवा — स्वयम्भूका ज्ञान नेत्रबाट प्रेरित, हामी स्पष्टता र करुणाका साथ अगाडि बढ्छौं।';
+  const heroStats = Array.isArray(displayContent.heroStats) && displayContent.heroStats.length
+    ? displayContent.heroStats
+    : DEFAULT_STATS;
+
+  const updateStat = (index, field, value) => {
+    const list = heroStats.map((s) => ({ ...s }));
+    list[index] = { ...list[index], [field]: value };
+    updateDraftArray('heroStats', list);
+  };
 
   return (
-    <section id="about" className="lokta-texture" ref={ref}>
+    <section id="about" className="lokta-texture home-about" ref={ref}>
+      <ThangkaCorner className="thangka-corner--tr" />
+
+      <div className="about-header-wrap">
+        <div className="section-header numbered-head numbered-head-left fade-in">
+          <span className="numbered-num">01</span>
+          <span className="numbered-kicker">
+            {lang === 'en' ? 'Who We Are' : 'हामी को हौं'}
+          </span>
+          <h2 className="section-title">
+            {lang === 'en' ? 'About the Club' : <span className="devanagari">हाम्रो परिचय</span>}
+          </h2>
+        </div>
+      </div>
+
       <div className="about-split">
-        {/* Editorial visual column (sticky on desktop) */}
+        {/* Editorial visual column (sticky on desktop, offset for asymmetry) */}
         <div className="about-visual fade-in">
           <div className="about-visual-frame">
             {isLoading ? (
@@ -116,14 +155,8 @@ export default function AboutSection({ content, isLoading }) {
           </div>
         </div>
 
-        {/* Narrative column — text, value cards, and quote all sit right of the image */}
+        {/* Narrative column — text, values, stats and quote sit right of the image */}
         <div className="about-body">
-          <div className="section-header fade-in">
-            <h2 className="section-title">
-              {lang === 'en' ? 'About the Club' : <span className="devanagari">हाम्रो परिचय</span>}
-            </h2>
-          </div>
-
           {isLoading ? (
             <AboutSkeleton />
           ) : (
@@ -157,7 +190,7 @@ export default function AboutSection({ content, isLoading }) {
                     aria-label={lang === 'en' ? v.titleEn : v.titleNe}
                   >
                     <div className="value-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <i className={v.iconClass} style={{ fontSize: '1.6rem', color: '#B8532A' }}></i>
+                      <i className={v.iconClass} style={{ fontSize: '1.5rem', color: '#FFE3B4' }}></i>
                     </div>
                     <h4 className="value-title">
                       {lang === 'en' ? v.titleEn : <span className="devanagari">{v.titleNe}</span>}
@@ -169,8 +202,32 @@ export default function AboutSection({ content, isLoading }) {
                 ))}
               </div>
 
-              {/* Pull-quote — sits below the value cards */}
-              <blockquote className="about-quote fade-in delay-2">
+              {/* Stats band — moved up from the hero */}
+              <div className="about-stats fade-in delay-2">
+                {heroStats.map((s, i) => (
+                  <React.Fragment key={i}>
+                    {i > 0 && <div className="about-stat-divider" aria-hidden="true" />}
+                    <div className="about-stat">
+                      <EditableField field="heroStats" value={s.value} onChange={(v) => updateStat(i, 'value', v)} style={{ display: 'inline-block' }}>
+                        <span className="about-stat-num">{s.value}</span>
+                      </EditableField>
+                      <EditableField
+                        field="heroStats"
+                        value={s.labelEn}
+                        onChange={(v) => updateStat(i, 'labelEn', v)}
+                        neValue={s.labelNe}
+                        onChangeNe={(v) => updateStat(i, 'labelNe', v)}
+                        style={{ display: 'inline-block' }}
+                      >
+                        <span className="about-stat-label">{lang === 'en' ? s.labelEn : s.labelNe}</span>
+                      </EditableField>
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
+
+              {/* Pull-quote — the closing line of the About narrative */}
+              <blockquote className="about-quote fade-in delay-3">
                 <span className="about-quote-mark" aria-hidden="true">"</span>
                 <p>
                   <EditableField field={lang === 'en' ? 'aboutQuoteEn' : 'aboutQuoteNe'}>

@@ -1,6 +1,4 @@
 import React from 'react';
-import Skeleton from 'react-loading-skeleton';
-import 'react-loading-skeleton/dist/skeleton.css';
 import { useLang } from '../context/LanguageContext';
 import useFadeIn from '../hooks/useFadeIn';
 import { useEditMode } from '../context/EditModeContext';
@@ -28,24 +26,24 @@ export default function TeamSection({ content = {}, isLoading = false }) {
       <section id="team" className="lokta-texture" style={{ padding: '4.5rem 0 6.5rem' }}>
         <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '0 5%' }}>
           <div className="section-header" style={{ opacity: 1, transform: 'none' }}>
-            <h2 className="section-title"><Skeleton width={250} /></h2>
+            <div className="sk brand" style={{ width: 260, height: '2.2rem', margin: '0 auto' }} />
             <TraditionalDivider style={{ margin: '0.8rem auto 0.5rem' }} />
           </div>
           <div className="team-grid" style={{ marginTop: '2.8rem' }}>
             {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="team-card">
+              <div key={i} className="team-card" style={{ width: '100%', maxWidth: 260 }}>
                 <div className="team-avatar-wrapper">
                   <div className="avatar-placeholder">
-                    <Skeleton circle width="100%" height="100%" />
+                    <div className="sk rounded" style={{ width: '100%', height: '100%' }} />
                   </div>
                 </div>
-                <h4 className="team-name" style={{ marginTop: '1rem' }}><Skeleton width="70%" /></h4>
-                <div className="team-role" style={{ margin: '0.5rem auto 0' }}><Skeleton width="50%" /></div>
+                <div className="sk brand" style={{ width: '68%', height: 16, margin: '1rem auto 0' }} />
+                <div className="sk" style={{ width: '46%', height: 20, margin: '0.6rem auto 0', borderRadius: 999 }} />
               </div>
             ))}
           </div>
         </div>
-        <SandyDivider bottomColor="#FBF5E9" />
+        <SandyDivider bottomColor="#7A1F34" />
       </section>
     );
   }
@@ -225,9 +223,13 @@ export default function TeamSection({ content = {}, isLoading = false }) {
 
   const renderHeader = (forceVisible = false) => (
     <div 
-      className={`section-header ${forceVisible ? '' : 'fade-in'}`} 
+      className={`section-header numbered-head ${forceVisible ? '' : 'fade-in'}`} 
       style={{ padding: 0, margin: '0 auto 2rem', textAlign: 'center', ...(forceVisible ? { opacity: 1, transform: 'none' } : {}) }}
     >
+      <span className="numbered-num">03</span>
+      <span className="numbered-kicker">
+        {lang === 'en' ? 'The People' : 'हाम्रा मानिसहरू'}
+      </span>
       <h2 className="section-title">
         {lang === 'en' ? 'Meet Our Leadership' : <span className="devanagari">हाम्रो नेतृत्व</span>}
       </h2>
@@ -286,7 +288,7 @@ export default function TeamSection({ content = {}, isLoading = false }) {
           </button>
         </div>
       )}
-      <SandyDivider bottomColor="#FBF5E9" />
+      <SandyDivider bottomColor="#7A1F34" />
     </section>
   );
 }

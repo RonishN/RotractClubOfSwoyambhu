@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import { MongoClient, ObjectId } from 'mongodb';
 import { Pool } from 'pg';
 import multer from 'multer';
@@ -13,9 +14,23 @@ dotenv.config();
 
 const app = express();
 const PORT = Number(process.env.PORT || 4000);
-const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || '';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const IS_PROD = NODE_ENV === 'production';
+const KNOWN_WEAK_SECRETS = new Set([
+  'change-this-secret-in-production',
+  'replace-with-a-long-random-secret',
+  '',
+]);
+// ── Enforce a strong JWT secret in production ────────────────────────────────
+// A weak or default secret lets anyone forge an admin token. Refuse to boot
+// rather than silently running insecure.
+if (IS_PROD && (KNOWN_WEAK_SECRETS.has(JWT_SECRET) || JWT_SECRET.length < 32)) {
+  throw new Error(
+    'Insecure JWT_SECRET. Set a random secret of at least 32 characters in your ' +
+    'Vercel environment variables before deploying to production.'
+  );
+}
 const ENABLE_STARTUP_INTEGRITY_CHECK = process.env.ENABLE_STARTUP_INTEGRITY_CHECK
   ? process.env.ENABLE_STARTUP_INTEGRITY_CHECK !== 'false'
   : !IS_PROD;
@@ -1028,11 +1043,20 @@ async function logErrorToDb(errorData) {
 }
 
 async function seedDefaultSuperAdmin() {
-  const superAdminUsername = 'sohail';
-  const superAdminPassHash = sha256('Sohailk@2064');
+  // Credentials come from environment variables ONLY — never hardcode them.
+  // Without SUPERADMIN_PASSWORD we do NOT create an account (prevents seeding
+  // an account with a publicly-known password from the source code).
+  const superAdminUsername = process.env.SUPERADMIN_USERNAME || 'sohail';
+  const superAdminPassword = process.env.SUPERADMIN_PASSWORD || '';
+
+  if (!superAdminPassword) {
+    logWarn('SUPERADMIN_PASSWORD is not set — skipping superadmin seeding. Set it in environment variables to create/reset the superadmin.');
+    return;
+  }
 
   try {
     const existing = await getAdminByUsername(superAdminUsername);
+    const superAdminPassHash = await hashPassword(superAdminPassword);
     const adminData = {
       username: superAdminUsername,
       password_hash: superAdminPassHash,
@@ -1047,7 +1071,7 @@ async function seedDefaultSuperAdmin() {
       await postgresPool.query(
         `INSERT INTO admins (username, password_hash, role, permissions, is_temporary_password, is_active, passkeys) 
          VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7::jsonb) 
-         ON CONFLICT (username) DO UPDATE SET permissions = EXCLUDED.permissions`,
+         ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, permissions = EXCLUDED.permissions`,
         [adminData.username, adminData.password_hash, adminData.role, JSON.stringify(adminData.permissions), adminData.is_temporary_password, adminData.is_active, JSON.stringify(adminData.passkeys)]
       );
     }
@@ -1056,7 +1080,8 @@ async function seedDefaultSuperAdmin() {
         const { permissions, ...insertData } = adminData;
         await db.collection('admins').updateOne(
           { username: superAdminUsername },
-          { $setOnInsert: insertData, $set: { permissions: adminData.permissions } },
+          { $set: { permissions: adminData.permissions, password_hash: adminData.password_hash } },
+          { $setOnInsert: insertData },
           { upsert: true }
         );
       }
@@ -1185,6 +1210,31 @@ function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
+// ── Password hashing (bcrypt) with SHA-256 migration ─────────────────────────
+// New and reset passwords are stored as bcrypt hashes. Legacy SHA-256 hashes
+// (pre-migration) are verified then transparently upgraded to bcrypt on the
+// next successful login.
+const BCRYPT_ROUNDS = 10;
+
+async function hashPassword(password) {
+  return bcrypt.hash(String(password), BCRYPT_ROUNDS);
+}
+
+async function verifyPassword(password, storedHash) {
+  if (!storedHash) return false;
+
+  if (storedHash.startsWith('$2')) {
+    return bcrypt.compare(String(password), storedHash);
+  }
+
+  // Legacy unsalted SHA-256 hash — verify via constant-time compare.
+  const isSha256 = /^[a-f0-9]{64}$/i.test(storedHash);
+  if (isSha256 && safeEqualHex(sha256(String(password)), storedHash)) {
+    return true;
+  }
+  return false;
+}
+
 function safeEqualHex(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) {
     return false;
@@ -1263,6 +1313,44 @@ app.get('/api/content', async (req, res) => {
   }
 });
 
+// ── Login brute-force protection ──────────────────────────────────────────────
+// Simple in-memory sliding-window limiter per (IP + username). 5 failed attempts
+// within 15 minutes locks the pair out for 15 minutes. Successful login clears it.
+const LOGIN_MAX_FAILURES = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const loginAttempts = new Map();
+
+function getLoginKey(req, username) {
+  return `${req.ip || req.socket?.remoteAddress || 'unknown'}|${username}`;
+}
+
+function tooManyLoginAttempts(req, username) {
+  const key = getLoginKey(req, username);
+  const now = Date.now();
+  const entry = loginAttempts.get(key);
+  if (!entry) return false;
+  if (now - entry.windowStart > LOGIN_WINDOW_MS) {
+    loginAttempts.delete(key);
+    return false;
+  }
+  return entry.failures >= LOGIN_MAX_FAILURES;
+}
+
+function recordLoginFailure(req, username) {
+  const key = getLoginKey(req, username);
+  const now = Date.now();
+  const entry = loginAttempts.get(key);
+  if (!entry || now - entry.windowStart > LOGIN_WINDOW_MS) {
+    loginAttempts.set(key, { windowStart: now, failures: 1 });
+  } else {
+    entry.failures += 1;
+  }
+}
+
+function clearLoginFailures(req, username) {
+  loginAttempts.delete(getLoginKey(req, username));
+}
+
 app.post('/api/admin/login', async (req, res) => {
   const { username = '', password = '' } = req.body || {};
 
@@ -1270,8 +1358,14 @@ app.post('/api/admin/login', async (req, res) => {
     return res.status(400).json({ message: 'Invalid credentials payload' });
   }
 
-  const admin = await getAdminByUsername(username.trim());
+  const trimmedUsername = username.trim();
+  if (tooManyLoginAttempts(req, trimmedUsername)) {
+    return res.status(429).json({ message: 'Too many failed login attempts. Try again in 15 minutes.' });
+  }
+
+  const admin = await getAdminByUsername(trimmedUsername);
   if (!admin) {
+    recordLoginFailure(req, trimmedUsername);
     return res.status(401).json({ message: 'Incorrect credentials. Please try again.' });
   }
   
@@ -1279,9 +1373,35 @@ app.post('/api/admin/login', async (req, res) => {
     return res.status(403).json({ message: 'Account is deactivated.' });
   }
 
-  const passwordHash = sha256(String(password));
-  if (!safeEqualHex(passwordHash, admin.password_hash)) {
+  const passwordOk = await verifyPassword(password, admin.password_hash);
+  if (!passwordOk) {
+    recordLoginFailure(req, trimmedUsername);
     return res.status(401).json({ message: 'Incorrect credentials. Please try again.' });
+  }
+
+  clearLoginFailures(req, trimmedUsername);
+
+  // Legacy SHA-256 hash? Upgrade to bcrypt now that the password is verified.
+  if (!String(admin.password_hash).startsWith('$2')) {
+    try {
+      const upgradedHash = await hashPassword(String(password));
+      if (postgresPool) {
+        await postgresPool.query(
+          'UPDATE admins SET password_hash = $1 WHERE username = $2',
+          [upgradedHash, admin.username]
+        );
+      }
+      if (mongoCollection) {
+        const db = mongoClient.db(MONGODB_DB_NAME);
+        await db.collection('admins').updateOne(
+          { username: admin.username },
+          { $set: { password_hash: upgradedHash } }
+        );
+      }
+      logInfo(`Upgraded ${admin.username} to bcrypt password hash`);
+    } catch (upgradeErr) {
+      logWarn(`Password upgrade failed for ${admin.username} (non-fatal): ${upgradeErr.message}`);
+    }
   }
 
   if (admin.is_temporary_password) {
@@ -1459,7 +1579,7 @@ app.post('/api/admin/users', requireAuth, async (req, res) => {
   if (!email || !email.trim()) return res.status(400).json({ message: 'Email address is required' });
   
   const tempPassword = generateRandomPassword();
-  const passHash = sha256(tempPassword);
+  const passHash = await hashPassword(tempPassword);
   const cleanEmail = email.trim();
   
   try {
@@ -1507,13 +1627,12 @@ app.post('/api/admin/users/send-credentials', requireAuth, async (req, res) => {
   }
 
   try {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: smtpUser,
-        pass: smtpPass,
-      },
-    });
+    const transporter = createMailTransport();
+    if (!transporter) {
+      return res.status(500).json({
+        message: 'SMTP Email configuration is missing on the server. Please configure SMTP_USER and SMTP_PASS (Google App Password) in environment variables.'
+      });
+    }
 
     const mailOptions = {
       from: `"Rotaract Club of Swoyambhu" <${smtpUser}>`,
@@ -1676,11 +1795,11 @@ app.post('/api/admin/change-password', async (req, res) => {
   const admin = await getAdminByUsername(user.username);
   if (!admin || !admin.is_active) return res.status(403).json({ message: 'Account deactivated or invalid' });
   
-  if (!safeEqualHex(sha256(currentPassword), admin.password_hash)) {
+  if (!(await verifyPassword(currentPassword, admin.password_hash))) {
     return res.status(401).json({ message: 'Incorrect current password' });
   }
   
-  const newHash = sha256(newPassword);
+  const newHash = await hashPassword(newPassword);
   
   try {
     if (postgresPool) {
@@ -1731,7 +1850,7 @@ app.post('/api/admin/forgot-password', async (req, res) => {
     return res.status(400).json({ message: 'Invalid reset code or username' });
   }
   
-  const newHash = sha256(newPassword);
+  const newHash = await hashPassword(newPassword);
   
   try {
     if (postgresPool) {
@@ -2220,6 +2339,27 @@ function emailPrimaryButton(href, label) {
     </div>`;
 }
 
+// ── SMTP transport ───────────────────────────────────────────────────────────
+// Configurable via SMTP_HOST/SMTP_PORT/SMTP_SECURE (defaults to Gmail).
+function getSmtpConfig() {
+  const user = process.env.SMTP_USER || process.env.GMAIL_USER || '';
+  const pass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || '';
+  if (!user || !pass) return null;
+
+  return {
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT || 465),
+    secure: process.env.SMTP_SECURE !== 'false',
+    auth: { user, pass },
+  };
+}
+
+function createMailTransport() {
+  const config = getSmtpConfig();
+  if (!config) return null;
+  return nodemailer.createTransport(config);
+}
+
 // Helper function to broadcast new event to email subscribers via Google SMTP
 async function sendUpcomingEventBroadcast(event) {
   const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER;
@@ -2249,10 +2389,10 @@ async function sendUpcomingEventBroadcast(event) {
     throw new Error('No email subscribers found in the database. Ask users to subscribe first on the Events page!');
   }
 
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: smtpUser, pass: smtpPass },
-  });
+  const transporter = createMailTransport();
+  if (!transporter) {
+    throw new Error('SMTP credentials (SMTP_USER and SMTP_PASS or GMAIL_APP_PASSWORD) are not configured in environment variables.');
+  }
 
   let sentCount = 0;
   // Send individual emails with personalized unsubscribe links
@@ -2345,39 +2485,49 @@ app.post('/api/subscribe', async (req, res) => {
     }
 
     // Confirmation email with Unsubscribe link
-    const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER;
-    const smtpPass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
     const frontendUrl = process.env.FRONTEND_ORIGIN ? process.env.FRONTEND_ORIGIN.split(',')[0] : 'http://localhost:5173';
     const unsubUrl = `${frontendUrl}/events?unsubscribe=true&email=${encodeURIComponent(cleanEmail)}`;
 
-    if (smtpUser && smtpPass) {
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: { user: smtpUser, pass: smtpPass },
-      });
-      transporter.sendMail({
-        from: `"Rotaract Club of Swoyambhu" <${smtpUser}>`,
-        to: cleanEmail,
-        subject: 'Subscribed to Rotaract Club of Swoyambhu Events',
-        html: emailShell({
-          title: 'Subscription Confirmed 🎉',
-          kicker: 'You\u2019re on the list',
-          children: `
-            <p style="margin:0 0 14px; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.7; color:#3a231a;">Thank you for subscribing to <strong>Rotaract Club of Swoyambhu</strong> event notifications.</p>
-            <p style="margin:0 0 20px; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.7; color:#4b3a30;">You will now automatically receive every upcoming community, youth development, and cultural event — including dates, venues, and registration links — directly in your inbox. Stay tuned!</p>
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fdf9f1; border:1px solid #efe3cb; border-radius:14px; padding:6px 18px;">
-              ${emailDetailRow('✉️', 'Subscribed email', cleanEmail)}
-            </table>
-            <div style="text-align:center; margin-top:22px;">
-              <a href="${unsubUrl}" style="font-family:Arial, Helvetica, sans-serif; color:#EF4444; font-size:13px; text-decoration:underline;">Click here to Unsubscribe / Stop receiving notifications</a>
-            </div>
-          `,
-          footerNote: 'Warm regards,<br/>Rotaract Club of Swoyambhu Team',
-        }),
-      }).catch(e => logWarn(`Subscribe confirmation email error: ${e.message}`));
+    let emailSent = false;
+    let emailError = '';
+    const transporter = createMailTransport();
+    if (transporter) {
+      try {
+        await transporter.sendMail({
+          from: `"Rotaract Club of Swoyambhu" <${process.env.SMTP_USER || process.env.GMAIL_USER}>`,
+          to: cleanEmail,
+          subject: 'Subscribed to Rotaract Club of Swoyambhu Events',
+          html: emailShell({
+            title: 'Subscription Confirmed 🎉',
+            kicker: 'You\u2019re on the list',
+            children: `
+              <p style="margin:0 0 14px; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.7; color:#3a231a;">Thank you for subscribing to <strong>Rotaract Club of Swoyambhu</strong> event notifications.</p>
+              <p style="margin:0 0 20px; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.7; color:#4b3a30;">You will now automatically receive every upcoming community, youth development, and cultural event — including dates, venues, and registration links — directly in your inbox. Stay tuned!</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fdf9f1; border:1px solid #efe3cb; border-radius:14px; padding:6px 18px;">
+                ${emailDetailRow('✉️', 'Subscribed email', cleanEmail)}
+              </table>
+              <div style="text-align:center; margin-top:22px;">
+                <a href="${unsubUrl}" style="font-family:Arial, Helvetica, sans-serif; color:#EF4444; font-size:13px; text-decoration:underline;">Click here to Unsubscribe / Stop receiving notifications</a>
+              </div>
+            `,
+            footerNote: 'Warm regards,<br/>Rotaract Club of Swoyambhu Team',
+          }),
+        });
+        emailSent = true;
+      } catch (err) {
+        emailError = String(err && err.message || err).slice(0, 300);
+        logError(`Subscribe confirmation email failed for ${cleanEmail}: ${emailError}`);
+      }
+    } else {
+      emailError = 'SMTP not configured (SMTP_USER/SMTP_PASS missing)';
+      logWarn(`Subscribe confirmation email skipped: ${emailError}`);
     }
 
-    res.json({ message: 'Subscribed successfully! You will now receive all upcoming events in your email.' });
+    res.json({
+      message: 'Subscribed successfully! You will now receive all upcoming events in your email.',
+      emailSent,
+      ...(emailError ? { emailError } : {}),
+    });
   } catch (err) {
     logError(`Subscribe error: ${err.message}`);
     res.status(500).json({ message: 'Failed to subscribe. Please try again.' });

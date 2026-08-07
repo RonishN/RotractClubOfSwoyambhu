@@ -117,13 +117,15 @@ export default function Header() {
               </li>
             )}
             <li>
-              <div 
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }} 
+              <div
+                className="lang-switch"
+                role="switch"
+                aria-checked={lang === 'ne'}
+                aria-label={lang === 'en' ? 'Switch language' : 'भाषा बदल्नुहोस्'}
                 onClick={() => { toggleLang(); setMobileMenuOpen(false); }}
               >
-                <span style={{ opacity: lang === 'en' ? 1 : 0.5, transition: 'opacity 0.2s' }}>EN</span>
-                <span style={{ opacity: 0.5 }}>|</span>
-                <span style={{ opacity: lang === 'ne' ? 1 : 0.5, transition: 'opacity 0.2s', fontFamily: 'var(--font-devanagari)' }}>ने</span>
+                <span className={`lang-opt ${lang === 'en' ? 'active' : ''}`}>EN</span>
+                <span className={`lang-opt ${lang === 'ne' ? 'active' : ''}`} style={{ fontFamily: 'var(--font-devanagari)' }}>ने</span>
               </div>
             </li>
           </ul>
