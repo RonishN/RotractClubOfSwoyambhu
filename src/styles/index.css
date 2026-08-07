@@ -863,7 +863,6 @@ header.scrolled .lang-opt.active { color: #3D0C1B; background: linear-gradient(1
 .home-page .home-events-inner{max-width:1180px;margin:0 auto}
 .home-page .home-events .spotlight-inner{min-height:520px}
 .home-page .events-skeleton{max-width:1180px;margin:0 auto}
-.home-page .events-skeleton .spotlight{border-radius:28px}
 
 .home-page .events-list{list-style:none;margin:2.2rem auto 0;padding:0;max-width:1180px;display:flex;flex-direction:column;gap:1rem}
 .home-page .events-list-row{display:grid;grid-template-columns:74px 1fr auto;gap:1.2rem;align-items:center;padding:1.05rem 1.4rem;background:#fffdf7;border:1.5px solid var(--home-line);border-radius:18px;box-shadow:0 8px 24px rgba(79,18,34,.06);transition:border-color .25s,transform .25s,box-shadow .25s}
@@ -1034,13 +1033,14 @@ header.scrolled .lang-opt.active { color: #3D0C1B; background: linear-gradient(1
   --ev-font-display:var(--home-font-display);
 }
 
-/* ── SPOTLIGHT: home featured card mirrors the events page ─────────
-   All layout comes from the shared base .spotlight styles used on
-   /events: maroon gradient card, gold bottom bar, grid with the image
-   filling the left column (object-fit:cover) and the text on the
-   right. Home only adds the rounded wrapper. Mobile stacking is also
-   provided by the base media query. ──────────────────────────────── */
-.home-page .home-events .spotlight{border-radius:28px;overflow:hidden;box-shadow:0 30px 70px rgba(79,18,34,.3)}
+/* ── SPOTLIGHT: home featured band mirrors the events page ────────
+   The featured section on /events is a full-width band (maroon
+   gradient, gold bottom bar) with the image column on the far left
+   and the text panel on the far right. On the home page it is a
+   direct child of #events, so it inherits that exact base .spotlight
+   treatment. Break it out of the section's 5% padding so it spans the
+   viewport edge-to-edge like /events. ────────────────────────────── */
+.home-page .home-events .spotlight{width:100vw;margin-left:calc(50% - 50vw)}
 
 
 /* ── EVENTS → CONTACT wave divider: full-bleed + flush with the band ─

@@ -89,8 +89,8 @@ export default function EventsSection() {
           {lang === 'en' ? 'No events scheduled.' : 'कुनै कार्यक्रमहरू तय गरिएको छैन।'}
         </div>
       ) : (
-        <div className="home-events-inner">
-          {/* Featured event — spotlight maroon band (image-first) */}
+        <>
+          {/* Featured event — full-width spotlight band (matches /events) */}
           <article className="spotlight fade-in delay-1">
             <div className="spotlight-inner">
               <div className="spotlight-media">
@@ -139,34 +139,36 @@ export default function EventsSection() {
             </div>
           </article>
 
-          {/* Upcoming list */}
-          {list.length > 0 && (
-            <ul className="events-list fade-in delay-2">
-              {list.map((ev) => (
-                <li key={ev.id} className="events-list-row">
-                  <div className="events-list-date">
-                    <span className="eld-day">{ev.eventDate ? ev.eventDate.split('-')[2] : ''}</span>
-                    <span className="eld-month">{ev.eventDate ? new Date(ev.eventDate).toLocaleString('en-US', { month: 'short' }).toUpperCase() : ''}</span>
-                  </div>
-                  <div className="events-list-info">
-                    <h4>{ev.title}</h4>
-                    {ev.description && <p>{ev.description}</p>}
-                  </div>
-                  <div className="events-list-action">
-                    {ev.registrationLink && !ev.registrationClosed && (
-                      <a href={ev.registrationLink} target="_blank" rel="noopener noreferrer">
-                        {lang === 'en' ? 'Register' : 'दर्ता'}
-                        <i className="fa-solid fa-arrow-right"></i>
-                      </a>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+          <div className="home-events-inner">
+            {/* Upcoming list */}
+            {list.length > 0 && (
+              <ul className="events-list fade-in delay-2">
+                {list.map((ev) => (
+                  <li key={ev.id} className="events-list-row">
+                    <div className="events-list-date">
+                      <span className="eld-day">{ev.eventDate ? ev.eventDate.split('-')[2] : ''}</span>
+                      <span className="eld-month">{ev.eventDate ? new Date(ev.eventDate).toLocaleString('en-US', { month: 'short' }).toUpperCase() : ''}</span>
+                    </div>
+                    <div className="events-list-info">
+                      <h4>{ev.title}</h4>
+                      {ev.description && <p>{ev.description}</p>}
+                    </div>
 
+                    <div className="events-list-action">
+                      {ev.registrationLink && !ev.registrationClosed && (
+                        <a href={ev.registrationLink} target="_blank" rel="noopener noreferrer">
+                          {lang === 'en' ? 'Register' : 'दर्ता'}
+                          <i className="fa-solid fa-arrow-right"></i>
+                        </a>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
       {/* View All Events Button */}
       <div style={{ textAlign: 'center', marginTop: '2.8rem', marginBottom: '1rem' }}>
         <Link
