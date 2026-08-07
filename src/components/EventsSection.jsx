@@ -66,8 +66,9 @@ export default function EventsSection() {
     return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
-  const featured = events[0];
-  const list = events.slice(1);
+  // Prefer the admin-starred priority event; fall back to the soonest upcoming.
+  const featured = events.find(ev => ev.isPriority) || events[0];
+  const list = events.filter(ev => ev.id !== featured.id);
 
   return (
     <section id="events" className="lokta-texture home-events" ref={ref}>

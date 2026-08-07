@@ -186,11 +186,11 @@ export default function EventsPage() {
     return true;
   });
 
-  // Next upcoming event spotlight
+  // Next upcoming event spotlight — prefer the admin-starred priority event
   const upcoming = events
     .filter((ev) => ev.eventDate >= todayStr)
     .sort((a, b) => a.eventDate.localeCompare(b.eventDate));
-  const spotlight = upcoming[0] || null;
+  const spotlight = upcoming.find(ev => ev.isPriority) || upcoming[0] || null;
   const daysToGo = spotlight
     ? Math.max(0, Math.ceil((new Date(spotlight.eventDate) - new Date(todayStr)) / 86400000))
     : null;
