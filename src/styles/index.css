@@ -861,7 +861,6 @@ header.scrolled .lang-opt.active { color: #3D0C1B; background: linear-gradient(1
 
 /* ── EVENTS: spotlight featured card + upcoming list ───────────── */
 .home-page .home-events-inner{max-width:1180px;margin:0 auto}
-.home-page .home-events .spotlight{border-radius:28px;box-shadow:0 30px 70px rgba(79,18,34,.3)}
 .home-page .home-events .spotlight-inner{min-height:520px}
 .home-page .events-skeleton{max-width:1180px;margin:0 auto}
 .home-page .events-skeleton .spotlight{border-radius:28px}
@@ -1035,89 +1034,13 @@ header.scrolled .lang-opt.active { color: #3D0C1B; background: linear-gradient(1
   --ev-font-display:var(--home-font-display);
 }
 
-/* ── SPOTLIGHT: redesigned featured card (full-bleed image + overlay)
-   Works with both 16:9 and 4:3 uploads: the image covers the entire
-   card (object-fit:cover) and the text sits in a maroon overlay panel
-   on the right, so there is never a floating/letterboxed image. ───── */
-.home-page .home-events .spotlight{position:relative;overflow:hidden}
-.home-page .home-events .spotlight-inner{
-  display:block;
-  position:relative;
-  min-height:480px;
-}
-.home-page .home-events .spotlight-media{
-  position:absolute;
-  inset:0;
-  min-height:0;
-  aspect-ratio:auto;
-  align-self:auto;
-  background:linear-gradient(160deg,#f6e3c7,#f3d9b8);
-}
-.home-page .home-events .spotlight-media img{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  object-position:center;
-}
-.home-page .home-events .spotlight-media::after{
-  content:"";
-  position:absolute;
-  inset:0;
-  background:linear-gradient(90deg,
-    rgba(20,4,12,0.35) 0%,
-    rgba(20,4,12,0.10) 38%,
-    rgba(79,18,34,0.82) 62%,
-    rgba(61,12,27,0.97) 100%);
-}
-.home-page .home-events .spotlight-badge{z-index:3}
-.home-page .home-events .spotlight-body{
-  position:relative;
-  z-index:2;
-  box-sizing:border-box;
-  width:min(46%,600px);
-  margin-left:auto;
-  min-height:480px;
-  justify-content:center;
-  padding:clamp(2rem,4.5vw,4rem) clamp(1.5rem,4vw,3.2rem);
-  background:linear-gradient(115deg,
-    rgba(79,18,34,0.86) 0%,
-    rgba(122,31,52,0.94) 55%,
-    rgba(142,42,69,0.98) 100%);
-  border-left:1px solid rgba(223,169,46,.35);
-  box-shadow:-30px 0 60px rgba(20,4,12,.35);
-}
-.home-page .home-events .spotlight-body h2{font-size:clamp(1.6rem,3vw,2.3rem)}
-.home-page .home-events .spotlight-date{margin-top:18px}
-
-/* Mobile: stack image on top (16:9) with the text card below */
-@media (max-width:900px){
-  .home-page .home-events .spotlight-inner{display:block;min-height:0}
-  .home-page .home-events .spotlight-media{
-    position:relative;
-    inset:auto;
-    aspect-ratio:16/9;
-    min-height:0;
-  }
-  .home-page .home-events .spotlight-media::after{
-    background:linear-gradient(180deg,
-      rgba(20,4,12,0.25) 0%,
-      rgba(20,4,12,0) 40%);
-  }
-  .home-page .home-events .spotlight-body{
-    position:relative;
-    width:auto;
-    margin:0;
-    min-height:0;
-    padding:1.6rem 1.4rem 1.8rem;
-    background:linear-gradient(115deg,#4F1222 0%,#7A1F34 60%,#8E2A45 100%);
-    border-left:none;
-    box-shadow:none;
-    border-radius:0 0 28px 28px;
-  }
-  .home-page .home-events .spotlight-date{margin-top:14px}
-}
+/* ── SPOTLIGHT: home featured card mirrors the events page ─────────
+   All layout comes from the shared base .spotlight styles used on
+   /events: maroon gradient card, gold bottom bar, grid with the image
+   filling the left column (object-fit:cover) and the text on the
+   right. Home only adds the rounded wrapper. Mobile stacking is also
+   provided by the base media query. ──────────────────────────────── */
+.home-page .home-events .spotlight{border-radius:28px;overflow:hidden;box-shadow:0 30px 70px rgba(79,18,34,.3)}
 
 
 /* ── EVENTS → CONTACT wave divider: full-bleed + flush with the band ─
