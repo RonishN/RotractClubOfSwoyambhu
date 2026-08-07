@@ -40,6 +40,10 @@ export default function EventsSection() {
   const { lang } = useLang();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Featured image aspect: '169' (widescreen) or '43'. 16:9 keeps the
+  // full-width band layout; 4:3 uses the older rounded-card layout.
+  // Defaults to '43' so nothing flashes before the image loads.
+  const [featuredRatio, setFeaturedRatio] = useState('43');
   // Re-run the fade observer when loading flips so the spotlight/list that
   // render AFTER the async fetch get observed (otherwise they stay opacity:0
   // and leave a big blank gap between the header and the CTA).
@@ -91,11 +95,18 @@ export default function EventsSection() {
       ) : (
         <>
           {/* Featured event — full-width spotlight band (matches /events) */}
-          <article className="spotlight fade-in delay-1">
+          <article className={`spotlight fade-in delay-1 spotlight-${featuredRatio}`}>
             <div className="spotlight-inner">
               <div className="spotlight-media">
                 {featured.pictures && featured.pictures.length > 0 ? (
-                  <img src={featured.pictures[0]} alt={featured.title} />
+                  <img
+                    src={featured.pictures[0]}
+                    alt={featured.title}
+                    onLoad={(e) => {
+                      const ratio = e.currentTarget.naturalWidth / e.currentTarget.naturalHeight;
+                      setFeaturedRatio(ratio >= 1.5 ? '169' : '43');
+                    }}
+                  />
                 ) : (
                   <div className="spotlight-empty"><i className="fa-solid fa-calendar-star" /></div>
                 )}

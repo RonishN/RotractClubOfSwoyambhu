@@ -1033,14 +1033,25 @@ header.scrolled .lang-opt.active { color: #3D0C1B; background: linear-gradient(1
   --ev-font-display:var(--home-font-display);
 }
 
-/* ── SPOTLIGHT: home featured band mirrors the events page ────────
-   The featured section on /events is a full-width band (maroon
-   gradient, gold bottom bar) with the image column on the far left
-   and the text panel on the far right. On the home page it is a
-   direct child of #events, so it inherits that exact base .spotlight
-   treatment. Break it out of the section's 5% padding so it spans the
-   viewport edge-to-edge like /events. ────────────────────────────── */
-.home-page .home-events .spotlight{width:100vw;margin-left:calc(50% - 50vw)}
+/* ── SPOTLIGHT: home featured section ─────────────────────────────
+   16:9 (spotlight-169): full-bleed band like /events — maroon gradient,
+   gold bottom bar, image column far left, text far right, spans the
+   viewport edge-to-edge.
+   4:3 (spotlight-43): the older rounded card — centered, image fills
+   the left column, solid maroon text panel on the right.
+   Ratio is detected from the image in EventsSection. ────────────── */
+.home-page .home-events .spotlight-169{width:100vw;margin-left:calc(50% - 50vw)}
+.home-page .home-events .spotlight-43{
+  width:min(1180px,100%);
+  margin:0 auto;
+  border-radius:28px;
+  overflow:hidden;
+  box-shadow:0 30px 70px rgba(79,18,34,.3);
+}
+.home-page .home-events .spotlight-43 .spotlight-body{
+  background:linear-gradient(115deg,#4F1222 0%,#7A1F34 60%,#8E2A45 100%);
+  border-left:1px solid rgba(223,169,46,.35);
+}
 
 
 /* ── EVENTS → CONTACT wave divider: full-bleed + flush with the band ─
